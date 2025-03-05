@@ -1,0 +1,12 @@
+glpsol.o: glpsol.c ../src/glpk.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stdarg.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stddef.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/__stddef_max_align_t.h
+
+../src/glpk.h:
+
+/Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stdarg.h:
+
+/Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stddef.h:
+
+/Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/__stddef_max_align_t.h:

@@ -1,0 +1,226 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"childIndexes" : 
+					[
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					],
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				},
+				{
+					"build" : "config",
+					"jsonFile" : "directory-config-Debug-8b7a1d9837f139bfe82c.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "config"
+				},
+				{
+					"build" : "utility",
+					"jsonFile" : "directory-utility-Debug-2eb7dd1ba56601e7e215.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "utility",
+					"targetIndexes" : 
+					[
+						6
+					]
+				},
+				{
+					"build" : "relation",
+					"jsonFile" : "directory-relation-Debug-ccf401025ed65f85e442.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "relation",
+					"targetIndexes" : 
+					[
+						4
+					]
+				},
+				{
+					"build" : "plan",
+					"jsonFile" : "directory-plan-Debug-f074e581b2e452e1956f.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "plan",
+					"targetIndexes" : 
+					[
+						2
+					]
+				},
+				{
+					"build" : "matching",
+					"jsonFile" : "directory-matching-Debug-7b8b56c2fc95de5386d4.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "matching",
+					"targetIndexes" : 
+					[
+						1
+					]
+				},
+				{
+					"build" : "executable",
+					"jsonFile" : "directory-executable-Debug-8da34b37b1a7113ef207.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "executable",
+					"targetIndexes" : 
+					[
+						3
+					]
+				},
+				{
+					"build" : "utility/td",
+					"jsonFile" : "directory-utility.td-Debug-f718700ecdf5b943cd85.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"parentIndex" : 0,
+					"projectIndex" : 0,
+					"source" : "utility/td",
+					"targetIndexes" : 
+					[
+						5
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6,
+						7
+					],
+					"name" : "in_memory_join",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4,
+						5,
+						6
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "ASDMatch.out::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-ASDMatch.out-Debug-5c1c5c32a64b341836e8.json",
+					"name" : "ASDMatch.out",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 5,
+					"id" : "matching::@006bf3aa7689e999730d",
+					"jsonFile" : "target-matching-Debug-256f49fcc74c5dfb72f3.json",
+					"name" : "matching",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 4,
+					"id" : "plan::@026c8abfb757ef5afad8",
+					"jsonFile" : "target-plan-Debug-182f5a894ce30932cefd.json",
+					"name" : "plan",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 6,
+					"id" : "prepare.out::@0e216d07efa95d1a3076",
+					"jsonFile" : "target-prepare.out-Debug-841df8cf994bb7f79ed2.json",
+					"name" : "prepare.out",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 3,
+					"id" : "relation::@88beb64de5f7b0cb537f",
+					"jsonFile" : "target-relation-Debug-ae0e6ad430c637ff9ec5.json",
+					"name" : "relation",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 7,
+					"id" : "td::@e3d7a0456b6c77908c52",
+					"jsonFile" : "target-td-Debug-12758fcbb460ba8b6fed.json",
+					"name" : "td",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 2,
+					"id" : "utility::@23b027168f11ea0d609c",
+					"jsonFile" : "target-utility-Debug-0f1d670d0dce109c9f4a.json",
+					"name" : "utility",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Users/lqy/Desktop/research/release/ASDMatch/cmake-build-debug",
+		"source" : "/Users/lqy/Desktop/research/release/ASDMatch"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 4
+	}
+}

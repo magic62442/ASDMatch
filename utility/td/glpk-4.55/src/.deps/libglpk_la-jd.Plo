@@ -1,0 +1,10 @@
+libglpk_la-jd.lo: misc/jd.c \
+  /Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stddef.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/__stddef_max_align_t.h \
+  misc/jd.h
+
+/Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/stddef.h:
+
+/Library/Developer/CommandLineTools/usr/lib/clang/13.0.0/include/__stddef_max_align_t.h:
+
+misc/jd.h:

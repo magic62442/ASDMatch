@@ -1,0 +1,4 @@
+# 忽略 glpk_lib 目录下的所有内容（但保留目录结构）
+utility/td/glpk_lib/*
+# 白名单：允许空目录占位文件
+!utility/td/glpk_lib/.gitkeep
