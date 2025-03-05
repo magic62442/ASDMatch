@@ -1,6 +1,0 @@
-/Applications/CLion_arm.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/Applications/CLion_arm.app/Contents/bin/ninja/mac/ninja -G Ninja -S /Users/lqy/Desktop/research/release/ASDMatch -B /Users/lqy/Desktop/research/release/ASDMatch/cmake-build-debug
--- GLPK include dir: /Users/lqy/Desktop/research/release/ASDMatch/utility/td/glpk_lib/include
--- GLPK library dir: /Users/lqy/Desktop/research/release/ASDMatch/utility/td/glpk_lib/lib
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/lqy/Desktop/research/release/ASDMatch/cmake-build-debug
