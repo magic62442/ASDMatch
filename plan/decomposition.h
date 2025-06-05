@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #ifndef IN_MEMORY_JOIN_DECOMPOSITION_H
@@ -43,7 +43,6 @@ struct HyperTree {
     int extendLevel;
     std::vector<VertexID> globalOrder;
     std::vector<std::vector<VertexID>> trieOrder;
-    /*******only used for scope-style join********/
     std::vector<std::vector<VertexID>> nodesAtStep;
     // dimension 1 is nID, dimension 2 is mapping size, dimension 3 are the children to call
     std::vector<VertexID> defaultPartition;
@@ -76,7 +75,7 @@ struct HyperTree {
     void buildFromTD(FHD &fhd);
     void print(const Graph &query) const;
     void addGlobalNode(const std::vector<VertexID> &globalAttrs);
-    void writeToStream(ostream &outStream);
+    void writeToStream(std::ofstream &outStream);
 };
 
 // the attribute tree structure
@@ -148,12 +147,6 @@ std::vector<std::vector<int>>
 buildAttrIDMap(const vector<PrefixNode *> &attributes, const map<PrefixNode *, vector<VertexID>> &bagsBelow,
                const HyperTree &t);
 std::vector<std::pair<int, VertexID>> buildDependent(const vector<PrefixNode *> &attributes);
-PrefixNode* cloneTree(const PrefixNode* root);
-std::vector<PrefixNode *> allPrefixTree(const vector<vector<VertexID>> &nodeAttrs, const vector<VertexID> &globalAttrs,
-                                        const Graph &query, const std::vector<std::vector<size_t>> &dist);
-
-HyperTree twoBagSubQuery(const HyperTree &t, const Graph &query);
-
 void buildFromPrefixTree(PrefixNode *prefixTree, const std::vector<std::vector<VertexID>> &nodeOrder, HyperTree &t,
                          const std::vector<std::vector<VertexID>> &sharedAttrs, const Graph &query, CandidateSpace &cs);
 void buildFromPrefixTree(const std::vector<PrefixNode *> &prefixTrees,
@@ -167,23 +160,13 @@ uint64_t getSubsetID(const std::vector<VertexID>& subset);
 bool subsetConnectivity(const Graph &query, const std::vector<uint64_t> &cc, const vector<VertexID> &subset);
 bool orderConnectivity(const Graph &query, const vector<VertexID> &order, const std::vector<uint64_t> &cc);
 bool orderConnectivity(const Graph &query, const vector<VertexID> &order);
-void
-genAllPrefixTree(const HyperTree &t, const Graph &query, CandidateSpace &cs, std::vector<PrefixNode *> &prefixTrees,
-                 bool global);
-void extendPrefixTree(const Graph &query, const HyperTree &t, queue<PrefixNode *> &plans, const PrefixNode *pt,
-                      const PrefixNode *current, const std::vector<VertexID> &attrsInPath,
-                      const std::vector<VertexID> &siblingAttr, int depth, std::vector<ui> &childPoses,
-                      std::unordered_set<PrefixNode *, PrefixNodePtrHash, PrefixNodePtrEqual> &visitedPT,
-                      const std::vector<std::vector<VertexID>> &attrIntersections,
-                      const std::vector<std::vector<VertexID>> &sharedAttrs, const std::vector<uint64_t> &cc);
 std::vector<VertexID> globalOrder(const Graph &query, const HyperTree &t, const CandidateSpace &cs, const std::vector<VertexID> &prefix);
 void reorderBags(const Graph &query, HyperTree &t);
 void changeNIDsToCall(const Graph &query, HyperTree &t, PrefixNode *pt);
 void addGlobal(const Graph &query, HyperTree &t, PrefixNode *pt, VertexID nID, VertexID maxCostID, CandidateSpace &cs,
-               vector<vector<VertexID>> &nodeOrders, std::vector<ui> &prefixSizes, bool globalOrderShare);
+               vector<vector<VertexID>> &nodeOrders, std::vector<ui> &prefixSizes, bool globalOrderType);
 std::vector<int>
 getPrefixAttrID(PrefixNode *pt, const std::vector<VertexID> &prefix, const std::vector<std::vector<int>> &attrIDMap,
                 const std::vector<PrefixNode *> &dynamicPartition);
-int convertToScopePlan(const Graph &query, HyperTree &t, PrefixNode *&pt, CandidateSpace &cs);
 
 #endif //IN_MEMORY_JOIN_DECOMPOSITION_H

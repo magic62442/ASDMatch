@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #include "relation.h"
@@ -78,11 +78,18 @@ void TrieNode::addMatch(const std::vector<VertexID> &match, ui startPos) {
 }
 
 size_t TrieNode::numTuples(bool *visited) const {
-    if (nodeChild.empty()) return 1;
     size_t num = 0;
-    for (int i = 0; i < nodeChild.size(); ++i) {
-        if (!visited[nodeChild[i]->value])
-            num += nodeChild[i]->numTuples(visited);
+    if (nodeChild[0]->nodeChild.empty()) {
+        for (int i = 0; i < nodeChild.size(); ++i) {
+            if (!visited[nodeChild[i]->value])
+                ++num;
+        }
+    }
+    else {
+        for (int i = 0; i < nodeChild.size(); ++i) {
+            if (!visited[nodeChild[i]->value])
+                num += nodeChild[i]->numTuples(visited);
+        }
     }
     return num;
 }

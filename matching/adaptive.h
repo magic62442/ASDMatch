@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/6/29.
+// Created by Qiyan LI on 2024/6/29.
 //
 
 #include "join.h"
@@ -31,18 +31,6 @@ struct VectorEqual {
     }
 };
 
-void
-initialPlan(const Graph &query, HyperTree &t, CandidateSpace &cs, PrefixNode *&pt, bool *visited, VertexID *partMatch,
-            VertexID **candidates, ui *candCount, std::vector<double> &costs, std::vector<VertexID> &largeNodes,
-            size_t budget);
-void
-safePlan(const Graph &query, HyperTree &t, CandidateSpace &cs, PrefixNode *&pt, bool *visited, VertexID *partMatch,
-         VertexID **candidates, ui *candCount, std::vector<double> &costs, size_t budget, bool share = false);
-
-void
-largeNodePlan(const Graph &query, HyperTree &t, const vector<VertexID> &largeNodes, CandidateSpace &cs, PrefixNode *&pt,
-              bool *visited, VertexID *partMatch, VertexID ***candidates, ui **candCount, size_t budget,
-              std::vector<double> &costs, std::vector<VertexID> &defaultPartition, std::vector<ui> &lengths);
 bool adaptiveNodeJoin(const HyperTree &t, VertexID nID, CandidateSpace &cs, bool *visited,
                       const std::vector<VertexID> &notInBag, VertexID *partMatch, int mappingSize,
                       VertexID **candidates, ui *candCount, std::vector<ui> &poses,
@@ -53,17 +41,6 @@ void adaptiveGlobalJoin(std::vector<std::vector<VertexID>> &result, size_t &budg
                         const std::vector<std::vector<VertexID>> &vertexParents,
                         const std::vector<VertexID> &cartesianParent, ui ***iters, ui *iterSize, bool traversal,
                         std::vector<std::vector<DynamicArray<TrieNode *> *>> &edgeColumns, TrieNode *empty, bool skip);
-void materializeJoin(HyperTree &t, PrefixNode *pt, CandidateSpace &cs, bool *visited,
-                     vector<vector<std::vector<VertexID>>> &tuples, std::vector<VertexID> &largeNodes, size_t &budget,
-                     ui height, VertexID *partMatch, VertexID **pCandidates, ui *pCandCount, VertexID **neighbors,
-                     ui *neighborCount, std::vector<std::vector<ui>> &nodePoses, std::vector<ui> &pPoses,
-                     std::vector<ui> &childPoses, ui ***nodeCandidates, ui **nodeCandCount);
-void adaptiveMaterializeJoin(const Graph &query, HyperTree &t, PrefixNode *pt, CandidateSpace &cs,
-                             std::vector<TrieNode *> &trieNodes, bool *visited, std::vector<std::vector<VertexID>> &result,
-                             size_t &count, bool traverse, size_t budget, bool skip);
-std::vector<ui>
-resetLengths(HyperTree &t, const std::vector<ui> &lengths, VertexID nID, const PrefixNode *oldPT, int depth,
-             const HyperTree &defaultT, const vector<vector<int>> &attrIDMap);
 void
 resetMaterialize(const Graph &query, HyperTree &t, const HyperTree &defaultT, VertexID nID, int depth,
                  const std::vector<ui> &lengths, PrefixNode *&newPrefix, HyperTree *&newTree,

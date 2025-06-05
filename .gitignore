@@ -2,3 +2,8 @@
 utility/td/glpk_lib/*
 # 白名单：允许空目录占位文件
 !utility/td/glpk_lib/.gitkeep
+/cmake-build-debug/
+/utility/td/bin/
+/utility/td/CMakeFiles/
+/utility/td/cmake-build-debug
+.idea

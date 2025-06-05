@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #include "decomposition.h"
@@ -378,9 +378,11 @@ void HyperTree::buildTraverseAdaptive(const Graph &query, int currentExtendLevel
     adaptiveGroups[currentExtendLevel] = currentGroups;
 }
 
-void HyperTree::writeToStream(ostream &outStream) {
-    outStream << "num bags: " << numNodes << std::endl;
-    for (VertexID nID = 0; nID < numNodes; ++nID) {
+void HyperTree::writeToStream(ofstream &outStream) {
+    ui num = numNodes;
+    if (newGlobalNode) --num;
+    outStream << "num bags: " << num << std::endl;
+    for (VertexID nID = 0; nID < num; ++nID) {
         for (int i = 0; i < nodes[nID].numAttributes; ++i) {
             outStream << nodes[nID].attributes[i];
             if (i != nodes[nID].numAttributes - 1) outStream << ",";
@@ -670,63 +672,6 @@ std::vector<std::pair<int, VertexID>> buildDependent(const vector<PrefixNode *> 
     }
 
     return depend;
-}
-
-// Function to clone a PrefixNode tree
-PrefixNode* cloneTree(const PrefixNode* root) {
-    if (!root) return nullptr;
-    PrefixNode* newRoot = new PrefixNode(root->u);
-    for (const auto& child : root->children) {
-        newRoot->children.push_back(cloneTree(child));
-    }
-    return newRoot;
-}
-
-std::vector<PrefixNode *> allPrefixTree(const vector<vector<VertexID>> &nodeAttrs, const vector<VertexID> &globalAttrs,
-                                        const Graph &query, const std::vector<std::vector<size_t>> &dist) {
-    std::vector<PrefixNode *> allTrees;
-    if (globalAttrs.empty()) return allTrees;
-
-    std::queue<std::pair<PrefixNode *, std::vector<VertexID>>> Q;
-
-    // Initialize queue with each element as a root
-    for (VertexID rootElement : globalAttrs) {
-        std::vector<VertexID> remainingElements = globalAttrs;
-        remainingElements.erase(std::remove(remainingElements.begin(), remainingElements.end(), rootElement), remainingElements.end());
-        PrefixNode *root = new PrefixNode(rootElement);
-        Q.push({root, remainingElements});
-    }
-
-    while (!Q.empty()) {
-        auto [currentTree, remainingElements] = Q.front();
-        Q.pop();
-
-        if (remainingElements.empty()) {
-            allTrees.push_back(currentTree);
-        } else {
-            for (VertexID nextElement : remainingElements) {
-                PrefixNode *newTree = cloneTree(currentTree);
-                PrefixNode *newNode = new PrefixNode(nextElement);
-
-                std::queue<PrefixNode *> nodes;
-                nodes.push(newTree);
-                while (!nodes.empty()) {
-                    PrefixNode *currentNode = nodes.front();
-                    nodes.pop();
-                    currentNode->children.push_back(newNode);
-                    Q.push({cloneTree(newTree), remainingElements});
-                    currentNode->children.pop_back();
-                    for (PrefixNode *child : currentNode->children) {
-                        nodes.push(child);
-                    }
-                }
-                delete newNode;
-            }
-            delete currentTree;
-        }
-    }
-
-    return allTrees;
 }
 
 int PrefixNode::findChildIndex(VertexID id) {
@@ -1599,201 +1544,11 @@ bool orderConnectivity(const Graph &query, const vector<VertexID> &order) {
     return true;
 }
 
-void
-genAllPrefixTree(const HyperTree &t, const Graph &query, CandidateSpace &cs, std::vector<PrefixNode *> &prefixTrees,
-                 bool global) {
-    std::vector<ui> poses(query.getNumVertices(), 0);
-    std::vector<std::vector<VertexID>> v2n(query.getNumVertices());
-    ui numNodes = t.numNodes;
-    if (t.newGlobalNode && !global) --numNodes;
-    std::vector<std::vector<VertexID>> noShareOrders(numNodes);
-    std::vector<std::vector<ui>> numBackWards(numNodes);
-    for (VertexID nID = 0; nID < numNodes; ++nID) {
-        for (int i = 0; i < t.nodes[nID].numAttributes; ++i) {
-            VertexID u = t.nodes[nID].attributes[i];
-            v2n[u].push_back(nID);
-            noShareOrders[nID].push_back(u);
-        }
-    }
-    std::vector<std::vector<VertexID>> sharedAttrs(t.numNodes);
-    std::vector<VertexID> internalAttrs;
-    std::vector<std::vector<VertexID>> attrIntersections(t.numNodes * t.numNodes);
-    for (VertexID nID = 0; nID < numNodes; ++nID) {
-        for (int i = 0; i < t.nodes[nID].numAttributes; ++i) {
-            VertexID u = t.nodes[nID].attributes[i];
-            if (v2n[u].size() > 1) {
-                sharedAttrs[nID].push_back(u);
-            }
-        }
-        std::sort(sharedAttrs[nID].begin(), sharedAttrs[nID].end());
-    }
-    for (VertexID u = 0; u < query.getNumVertices(); ++u) {
-        if (v2n[u].size() > 1)
-            internalAttrs.push_back(u);
-    }
-    std::vector<std::vector<VertexID>> components;
-    std::vector<uint64_t> cc;
-    query.computeConnectedComponents(internalAttrs, components);
-    for (auto &c : components) cc.push_back(getSubsetID(c));
-    for (VertexID nID1 = 0; nID1 < numNodes; ++nID1) {
-        for (VertexID nID2 = nID1 + 1; nID2 < numNodes; ++nID2) {
-            std::set_intersection(sharedAttrs[nID1].begin(), sharedAttrs[nID1].end(), sharedAttrs[nID2].begin(),
-                                  sharedAttrs[nID2].end(), std::back_inserter(attrIntersections[nID1 * t.numNodes + nID2]));
-        }
-    }
-    std::unordered_set<PrefixNode*, PrefixNodePtrHash, PrefixNodePtrEqual> visitedPT;
-    PrefixNode *empty = new PrefixNode(99);
-    for (VertexID nID = 0; nID < numNodes; ++nID) empty->nIDsToCall.push_back(nID);
-    std::queue<PrefixNode *> plans;
-    plans.push(empty);
-    visitedPT.insert(empty);
-    while (!plans.empty()) {
-        PrefixNode *pt = plans.front();
-        plans.pop();
-        prefixTrees.push_back(pt);
-        PrefixNode *pn = pt;
-        ui height = pn -> getHeight();
-        std::vector<ui> childPoses(height, 0);
-        std::vector<PrefixNode *> nodes(height, nullptr);
-        int depth = 0;
-        std::vector<VertexID> attrsInPath;
-        std::vector<VertexID> siblingAttr;
-        extendPrefixTree(query, t, plans, pt, pn, attrsInPath, siblingAttr, -1, childPoses,
-                         visitedPT, attrIntersections, sharedAttrs, cc);
-        while (depth >= 0) {
-            while (childPoses[depth] < pn -> children.size()) {
-                PrefixNode *current = pn -> children[childPoses[depth]];
-                VertexID u = current -> u;
-                attrsInPath.push_back(u);
-                nodes[depth] = current;
-                siblingAttr.clear();
-                if (depth == 0) {
-                    for (PrefixNode *sibling: pt -> children)
-                        if (sibling != current) siblingAttr.push_back(sibling -> u);
-                }
-                else {
-                    for (PrefixNode *sibling: nodes[depth - 1] -> children)
-                        if (sibling != current) siblingAttr.push_back(sibling -> u);
-                }
-                ++childPoses[depth];
-                extendPrefixTree(query, t, plans, pt, current, attrsInPath, siblingAttr, depth, childPoses,
-                                 visitedPT, attrIntersections, sharedAttrs, cc);
-                if (!current -> children.empty()) {
-                    ++depth;
-                    childPoses[depth] = 0;
-                }
-                else if (childPoses[depth] < pn -> children.size())
-                    attrsInPath.pop_back();
-                if (depth > 0) pn = nodes[depth - 1];
-            }
-            --depth;
-            if (depth >= 0) {
-                if (depth == 0) pn = pt;
-                else pn = nodes[depth - 1];
-                attrsInPath.pop_back();
-                if (childPoses[depth] < pn -> children.size()) attrsInPath.pop_back();
-            }
-        }
-    }
-    for (PrefixNode *pt : prefixTrees) {
-        pt->initNIDsToBuild(t.numNodes);
-        pt ->initPoses(sharedAttrs, query, cs.dist);
-    }
-}
-
-void extendPrefixTree(const Graph &query, const HyperTree &t, queue<PrefixNode *> &plans, const PrefixNode *pt,
-                      const PrefixNode *current, const std::vector<VertexID> &attrsInPath,
-                      const std::vector<VertexID> &siblingAttr, int depth, std::vector<ui> &childPoses,
-                      std::unordered_set<PrefixNode *, PrefixNodePtrHash, PrefixNodePtrEqual> &visitedPT,
-                      const std::vector<std::vector<VertexID>> &attrIntersections,
-                      const std::vector<std::vector<VertexID>> &sharedAttrs, const std::vector<uint64_t> &cc) {
-    VertexID u = current -> u;
-    if (current -> nIDsToCall.size() >= 2) {
-        std::vector<std::vector<bool>> choices = chooseK(current->nIDsToCall.size(), 2);
-        for (auto choice: choices) {
-            std::vector<VertexID> selected;
-            for (int j = 0; j < current->nIDsToCall.size(); ++j) {
-                VertexID nID = current->nIDsToCall[j];
-                if (choice[j]) selected.push_back(nID);
-            }
-            ui pos = selected[0] * t.numNodes + selected[1];
-            if (selected[0] > selected[1]) pos = selected[1] * t.numNodes + selected[0];
-            std::vector<VertexID> attrIntersect = attrIntersections[pos];
-            for (VertexID u2: attrIntersect) {
-                if (std::find(siblingAttr.begin(), siblingAttr.end(), u2) != siblingAttr.end()) continue;
-                if (std::find(attrsInPath.begin(), attrsInPath.end(), u2) != attrsInPath.end()) continue;
-                std::vector<VertexID> prefix = attrsInPath;
-                bool connected = prefix.empty();
-                for (VertexID up: prefix) {
-                    if (query.getEdgeID(up, u2) != -1) {
-                        connected = true;
-                        break;
-                    }
-                }
-                if (!connected) continue;
-                prefix.push_back(u2);
-                PrefixNode *newPT = pt -> clone();
-                PrefixNode *newPN = newPT;
-                for (int i = 0; i <= depth; ++i) {
-                    newPN = newPN -> children[childPoses[i] - 1];
-                }
-                PrefixNode *newChild = new PrefixNode(u2);
-                newChild -> nIDsToCall = selected;
-                if (selected[0] == t.numNodes - 1 || selected[1] == t.numNodes - 1) newPN->children.push_back(newChild);
-                else {
-                    std::vector<PrefixNode *> old = newPN -> children;
-                    newPN -> children = {newChild};
-                    for (PrefixNode * c: old) newPN -> children.push_back(c);
-                }
-                newPN -> nIDsToCall.clear();
-                for (int i = 0; i < current->nIDsToCall.size(); ++i) {
-                    if (!choice[i]) newPN -> nIDsToCall.push_back(current -> nIDsToCall[i]);
-                }
-                if (visitedPT.find(newPT) != visitedPT.end()) {
-                    delete newPT;
-                    continue;
-                }
-                else {
-                    visitedPT.insert(newPT);
-                    plans.push(newPT);
-                }
-            }
-        }
-    }
-    if (!current -> children.empty()) {
-        for (int i = 0; i < current -> children.size(); ++i) {
-            PrefixNode *c = current -> children[i];
-            VertexID u2 = c -> u;
-            for (VertexID nID : current -> nIDsToCall) {
-                if (std::find(sharedAttrs[nID].begin(), sharedAttrs[nID].end(), u2) == sharedAttrs[nID].end()) continue;
-                PrefixNode *newPT = pt -> clone();
-                PrefixNode *newPN = newPT;
-                for (int j = 0; j <= depth; ++j) {
-                    newPN = newPN -> children[childPoses[j] - 1];
-                }
-                newPN -> nIDsToCall.clear();
-                for (VertexID nID2 : current -> nIDsToCall) {
-                    if (nID != nID2) newPN -> nIDsToCall.push_back(nID2);
-                }
-                newPN -> children[i] -> nIDsToCall.push_back(nID);
-                std::sort(newPN -> children[i] -> nIDsToCall.begin(), newPN->children[i]->nIDsToCall.end());
-                if (visitedPT.find(newPT) != visitedPT.end()) {
-                    delete newPT;
-                    continue;
-                }
-                else {
-                    visitedPT.insert(newPT);
-                    plans.push(newPT);
-                }
-            }
-        }
-    }
-}
-
 std::vector<VertexID> globalOrder(const Graph &query, const HyperTree &t, const CandidateSpace &cs, const std::vector<VertexID> &prefix) {
     std::vector<VertexID> localOrder;
     std::vector<ui> repetitions(query.getNumVertices(), 0);
     std::vector<ui> sizes(query.getNumVertices(), 0);
+    std::vector<ui> maxBagSizes(query.getNumVertices(), 0);
     const HyperNode &global = t.nodes[t.numNodes - 1];
     for (int i = 0; i < global.numAttributes; ++i) {
         VertexID u = global.attributes[i];
@@ -1803,11 +1558,15 @@ std::vector<VertexID> globalOrder(const Graph &query, const HyperTree &t, const 
     for (VertexID u : localOrder) {
         repetitions[u] = t.v2n[u].size();
         sizes[u] = cs.candidateSet[u].size();
+        for (VertexID nID : t.v2n[u]) {
+            if (maxBagSizes[u] < t.nodes[nID].numAttributes) maxBagSizes[u] = t.nodes[nID].numAttributes;
+        }
     }
 
-    std::sort(localOrder.begin(), localOrder.end(), [&repetitions, &sizes](const VertexID &a, const VertexID &b) {
+    std::sort(localOrder.begin(), localOrder.end(), [&repetitions, &sizes, &maxBagSizes](const VertexID &a, const VertexID &b) {
         if (repetitions[a] > repetitions[b]) return true;
-        if (repetitions[a] == repetitions[b] && sizes[a] < sizes[b]) return true;
+        if (repetitions[a] == repetitions[b] && maxBagSizes[a] > maxBagSizes[b]) return true;
+        if (repetitions[a] == repetitions[b] && maxBagSizes[a] == maxBagSizes[b] && sizes[a] < sizes[b]) return true;
         return false;
     });
     std::vector<VertexID> totalOrder = prefix;
@@ -1945,17 +1704,15 @@ void changeNIDsToCall(const Graph &query, HyperTree &t, PrefixNode *pt) {
     }
 }
 
+// global order type, true: prefix share with maxCostID, false: no prefix
 void addGlobal(const Graph &query, HyperTree &t, PrefixNode *pt, VertexID nID, VertexID maxCostID, CandidateSpace &cs,
-               vector<vector<VertexID>> &nodeOrders, std::vector<ui> &prefixSizes, bool globalOrderShare) {
+               vector<vector<VertexID>> &nodeOrders, std::vector<ui> &prefixSizes, bool globalOrderType) {
     std::vector<PrefixNode *> attributes2 = pt->locate(maxCostID);
     std::vector<PrefixNode *> attributes;
     for (PrefixNode *attribute: attributes2) {
         if (t.v2n[attribute->u].size() >= 2) attributes.push_back(attribute);
         else break;
     }
-//    while (attributes.back()->nIDsToCall.size() + attributes.back()->children.size() < 2) {
-//        attributes.pop_back();
-//    }
     std::vector<VertexID> prefix;
     for (int i = 0; i < attributes.size(); ++i) prefix.push_back(attributes[i]->u);
     std::vector<VertexID> newShareAttr;
@@ -1971,22 +1728,23 @@ void addGlobal(const Graph &query, HyperTree &t, PrefixNode *pt, VertexID nID, V
     nodeOrders[nID] = globalOrder(query, t, cs, prefix);
     PrefixNode *attr = pt;
     if (!attributes.empty()) attr = attributes.back();
+    if (!globalOrderType) {
+        prefix.clear();
+        nodeOrders[nID] = globalOrder(query, t, cs, prefix);
+        newShareAttr.clear();
+        attr = pt;
+        for (int i = 0; i < nodeOrders[maxCostID].size(); ++i) {
+            if (nodeOrders[maxCostID][i] == nodeOrders[nID][i]) {
+                if (i >= attributes.size()) newShareAttr.push_back(nodeOrders[maxCostID][i]);
+                else attr = attributes[i];
+            }
+            else break;
+        }
+    }
     for (VertexID u : newShareAttr) {
         PrefixNode *newAttr = new PrefixNode(u);
         attr -> children.push_back(newAttr);
         attr = newAttr;
-    }
-    if (!prefixSizes.empty()) {
-        for (int i = 0; i < attributes.size(); ++i) {
-            for (VertexID nID2 : attributes[i]->getBagsBelow())
-                prefixSizes[nID2] = i + 1;
-        }
-        prefixSizes[nID] = prefixSizes[maxCostID] = prefix.size();
-    }
-    if (!globalOrderShare) {
-        newShareAttr.clear();
-        prefix.clear();
-        nodeOrders[nID] = globalOrder(query, t, cs, prefix);
     }
     if (newShareAttr.empty()) attr->nIDsToCall.push_back(nID);
     else {
@@ -2000,31 +1758,6 @@ void addGlobal(const Graph &query, HyperTree &t, PrefixNode *pt, VertexID nID, V
         }
         attr->nIDsToCall = {maxCostID, nID};
     }
-//    std::vector<PrefixNode *> attributes;
-//    std::vector<VertexID> prefix;
-//    nodeOrders[nID] = globalOrder(query, t, cs, prefix);
-//    int pos = 0;
-//    PrefixNode *attr = pt;
-//    while (true) {
-//        bool flag = false;
-//        for (PrefixNode *c : attr->children)
-//            if (c->u == nodeOrders[nID][pos]) {
-//                flag = true;
-//                attr = c;
-//                attributes.push_back(attr);
-//                ++pos;
-//                break;
-//            }
-//        if (!flag) break;
-//    }
-//    if (!attributes.empty()) attr = attributes.back();
-//    attr->nIDsToCall.push_back(nID);
-//    if (!prefixSizes.empty()) {
-//        for (int i = 0; i < attributes.size(); ++i) {
-//            for (VertexID nID2 : attributes[i]->getBagsBelow())
-//                prefixSizes[nID2] = i + 1;
-//        }
-//    }
 }
 
 std::vector<int>
@@ -2052,194 +1785,4 @@ getPrefixAttrID(PrefixNode *pt, const std::vector<VertexID> &prefix, const std::
     }
 
     return result;
-}
-
-int convertToScopePlan(const Graph &query, HyperTree &t, PrefixNode *&pt, CandidateSpace &cs) {
-    ui numNodes = t.numNodes;
-    if (t.newGlobalNode) --numNodes;
-    std::vector<std::vector<VertexID>> prefixOrders(t.numNodes), nodeOrders(t.numNodes);
-    for (VertexID nID2 = 0; nID2 < t.numNodes; ++nID2) {
-        prefixOrders[nID2].assign(t.nodes[nID2].attributes, t.nodes[nID2].attributes + t.nodes[nID2].prefixSize);
-        nodeOrders[nID2].assign(t.nodes[nID2].attributes, t.nodes[nID2].attributes + t.nodes[nID2].numAttributes);
-    }
-    std::vector<VertexID> defaultPartition;
-    std::vector<PrefixNode *> attributeOrder;
-    std::vector<VertexID> bagOrder;
-    pt->getTraverseOrder(attributeOrder, bagOrder, t);
-    for (int i = 0; i < numNodes; ++i) {
-        VertexID nID = bagOrder[i];
-        ui oldPrefixSize = prefixOrders[nID].size();
-        const HyperNode &tau = t.nodes[nID];
-        ui newPrefixSize = tau.numAttributes - 2;
-        VertexID u_1 = nodeOrders[nID][tau.numAttributes - 2], u_2 = nodeOrders[nID][tau.numAttributes - 1];
-        if (query.getEdgeID(u_1, u_2) == -1) ++newPrefixSize;
-        if (newPrefixSize < oldPrefixSize) newPrefixSize = oldPrefixSize;
-        for (int j = 0; j < oldPrefixSize; ++j) {
-            VertexID u = nodeOrders[nID][j];
-            if (std::find(defaultPartition.begin(), defaultPartition.end(), u) == defaultPartition.end())
-                defaultPartition.push_back(u);
-        }
-        for (int j = 0; j < newPrefixSize - oldPrefixSize; ++j) {
-            VertexID u = nodeOrders[nID][j + oldPrefixSize];
-            if (std::find(defaultPartition.begin(), defaultPartition.end(), u) == defaultPartition.end())
-                defaultPartition.push_back(u);
-            prefixOrders[nID].push_back(u);
-        }
-        for (int j = i + 1; j < bagOrder.size(); ++j) {
-            VertexID nID2 = bagOrder[j];
-            for (int k = oldPrefixSize; k < newPrefixSize; ++k) {
-                VertexID u = nodeOrders[nID][k];
-                if (std::find(nodeOrders[nID2].begin(), nodeOrders[nID2].end(), u) != nodeOrders[nID2].end() &&
-                        std::find(prefixOrders[nID2].begin(), prefixOrders[nID2].end(), u) == prefixOrders[nID2].end()) {
-                    prefixOrders[nID2].push_back(u);
-                    std::vector<VertexID> newNodeOrder = prefixOrders[nID2];
-                    for (VertexID u2: nodeOrders[nID2]) {
-                        if (std::find(prefixOrders[nID2].begin(), prefixOrders[nID2].end(), u2) == prefixOrders[nID2].end())
-                            newNodeOrder.push_back(u2);
-                    }
-                    nodeOrders[nID2] = newNodeOrder;
-                }
-            }
-        }
-    }
-    PrefixNode *root = new PrefixNode(99);
-    PrefixNode *pn = root;
-    std::vector<VertexID> materializedBags;
-    for (VertexID nID = 0; nID < t.numNodes; ++nID) {
-        if (prefixOrders[nID].size() == 0 && nID != t.numNodes - 1) {
-            root->nIDsToCall.push_back(nID);
-            root->nIDsToBuild.push_back(nID);
-            materializedBags.push_back(nID);
-        }
-    }
-    for (int i = 0; i < defaultPartition.size(); ++i) {
-        PrefixNode *attr = new PrefixNode(defaultPartition[i]);
-        attr -> pathToGlobal = true;
-        pn->children.push_back(attr);
-        // find all bags that the prefix is included and adjust the prefix order
-        std::vector<VertexID> below;
-        for (VertexID nID = 0; nID < t.numNodes; ++nID) {
-            if (std::find(materializedBags.begin(), materializedBags.end(), nID) != materializedBags.end()) continue;
-            std::vector<std::pair<VertexID, int>> poses;
-            for (int j = 0; j < prefixOrders[nID].size(); ++j) {
-                int pos = -1;
-                VertexID u = prefixOrders[nID][j];
-                for (int k = 0; k <= i; ++k) {
-                    if (defaultPartition[k] == u)
-                        pos = k;
-                }
-                poses.emplace_back(u, pos);
-            }
-            bool flag = true;
-            for (auto &item : poses) {
-                if (item.second == -1) flag = false;
-            }
-            if (!flag) continue;
-            std::sort(poses.begin(), poses.end(), [](const std::pair<VertexID, int>& a, const std::pair<VertexID, int>& b) {
-                return a.second < b.second;
-            });
-            for (int j = 0; j < prefixOrders[nID].size(); ++j) {
-                nodeOrders[nID][j] = poses[j].first;
-            }
-            if (nID != t.numNodes - 1 || i == defaultPartition.size() - 1) {
-                below.push_back(nID);
-                materializedBags.push_back(nID);
-            }
-        }
-        for (VertexID nID: below) {
-            if (nID != t.numNodes - 1) attr->nIDsToBuild.push_back(nID);
-        }
-        // create one child if they can share one attribute
-        std::map<VertexID, std::vector<VertexID>> firstAttrToBags;
-        for (VertexID nID : below) {
-            if (nID == t.numNodes - 1) {
-                attr->nIDsToCall.push_back(nID);
-                continue;
-            }
-            if (prefixOrders[nID].size() == nodeOrders[nID].size() - 2) {
-                VertexID u = nodeOrders[nID][prefixOrders[nID].size()];
-                firstAttrToBags[u].push_back(nID);
-            }
-            else attr->nIDsToCall.push_back(nID);
-        }
-        for (auto &item: firstAttrToBags) {
-            if (item.second.size() > 1) {
-                VertexID u = item.first;
-                PrefixNode *child = new PrefixNode(u);
-                child->pathToGlobal = false;
-                child->nIDsToCall = item.second;
-                std::vector<PrefixNode *> oldChild = attr->children;
-                attr->children = {child};
-                for (PrefixNode *c: oldChild) attr->children.push_back(c);
-            }
-            else attr->nIDsToCall.push_back(item.second[0]);
-        }
-        for (int j = 0; j < attr->nIDsToCall.size(); ++j) {
-            if (j == attr->nIDsToCall.size() - 1) continue;
-            if (attr->nIDsToCall[j] == t.numNodes - 1) std::swap(attr->nIDsToCall[j], attr->nIDsToCall.back());
-        }
-        pn = attr;
-    }
-    root->initPoses(nodeOrders, query, cs.dist);
-    delete pt;
-    pt = root;
-    HyperTree *newTree = new HyperTree();
-    newTree->newGlobalNode = t.newGlobalNode;
-    newTree->numNodes = t.numNodes;
-    newTree->nodes = new HyperNode[newTree->numNodes];
-    newTree->numAttributes = t.numAttributes;
-    for (VertexID nID2 = 0; nID2 < t.numNodes; ++nID2) {
-        t.nodes[nID2].copyTo(newTree->nodes[nID2]);
-        newTree->nodes[nID2].prefixSize = prefixOrders[nID2].size();
-        if (prefixOrders[nID2].size() != 0 && t.nodes[nID2].prefixSize == 0) newTree->nodes[nID2].prefix = new VertexID[t.numAttributes];
-        for (int i = 0; i < prefixOrders[nID2].size(); ++i)
-            newTree->nodes[nID2].prefix[i] = nodeOrders[nID2][i];
-        for (int i = 0; i < nodeOrders[nID2].size(); ++i)
-            newTree->nodes[nID2].attributes[i] = nodeOrders[nID2][i];
-    }
-    int returnValue = defaultPartition.size();
-    newTree->defaultPartition = defaultPartition;
-    for (VertexID u: nodeOrders.back()) {
-        if (std::find(newTree->defaultPartition.begin(), newTree->defaultPartition.end(), u) == newTree->defaultPartition.end())
-            newTree->defaultPartition.push_back(u);
-    }
-    const HyperNode &last = newTree->nodes[newTree->numNodes - 1];
-    newTree->v2n = new std::vector<VertexID> [newTree->numAttributes];
-    for (ui i = 0; i < newTree->numNodes; ++i) {
-        for (ui j = 0; j < newTree->nodes[i].numAttributes; ++j) {
-            newTree->v2n[newTree->nodes[i].attributes[j]].push_back(i);
-        }
-    }
-    std::vector<std::vector<VertexID>> sharedAttrs(t.numNodes);
-    for (VertexID nID2 = 0; nID2 < newTree->numNodes; ++nID2) {
-        for (int i = 0; i < newTree->nodes[nID2].numAttributes; ++i) {
-            VertexID u = newTree->nodes[nID2].attributes[i];
-            if (newTree->v2n[u].size() > 1) {
-                sharedAttrs[nID2].push_back(u);
-            }
-        }
-        std::sort(sharedAttrs[nID2].begin(), sharedAttrs[nID2].end());
-    }
-    for (VertexID nID2 = 0; nID2 < t.numNodes; ++nID2) {
-        newTree->nodes[nID2].initPoses(sharedAttrs, query, cs.dist, nID2 == t.numNodes - 1);
-    }
-    newTree->globalOrder = newTree->defaultPartition;
-    for (int i = prefixOrders[t.numNodes - 1].size(); i < nodeOrders[t.numNodes - 1].size(); ++i) {
-        VertexID u = nodeOrders[t.numNodes - 1][i];
-        if (std::find(newTree->globalOrder.begin(), newTree->globalOrder.end(), u) == newTree->globalOrder.end())
-            newTree->globalOrder.push_back(u);
-    }
-    for (VertexID nID2 = 0; nID2 < numNodes; ++nID2) {
-        for (int i = prefixOrders[nID2].size(); i < newTree->nodes[nID2].numAttributes; ++i) {
-            VertexID u = newTree->nodes[nID2].attributes[i];
-            if (std::find(newTree->globalOrder.begin(), newTree->globalOrder.end(), u) == newTree->globalOrder.end())
-                newTree->globalOrder.push_back(u);
-        }
-    }
-    newTree->initPoses(query, cs, false);
-    newTree->extendLevel = t.nodes[t.numNodes - 1].numAttributes;
-    newTree->buildTraverseStruct(query);
-    t = *newTree;
-
-    return returnValue;
 }

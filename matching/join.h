@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/8.
+// Created by Qiyan LI on 2024/3/8.
 //
 
 #ifndef IN_MEMORY_JOIN_JOIN_H
@@ -10,24 +10,18 @@
 extern size_t gNumResult;
 extern size_t gNumCartesian;
 extern size_t gNumTraverse;
+#ifdef LOCAL_COUNT
+extern std::vector<std::vector<size_t>> gLocalCount;
+#endif
 
 ui binarySearch(const DynamicArray<TrieNode *> &child, const ui begin, const ui end, const ui target);
 // for joining unary relation (set intersection)
 ui leapfrogSeek(const DynamicArray<TrieNode *> &child, ui begin, ui end, ui target);
 void leapFrogJoin(DynamicArray<TrieNode *> **children, ui num, ui **iters, ui &iterSize);
 
-void
-nodeJoinScope(const HyperTree &t, VertexID nID, CandidateSpace &cs, TrieNode *root, bool *visited, VertexID *partMatch,
-              VertexID **candidates, ui *candCount, std::vector<ui> &poses, bool skip);
-void nodeJoinScope(const HyperTree &t, VertexID nID, CandidateSpace &cs, bool *visited, VertexID *partMatch,
-                   VertexID **candidates, ui *candCount, std::vector<ui> &poses);
 void nodeJoin(const HyperTree &t, VertexID nID, CandidateSpace &cs, TrieNode *root, bool *visited, VertexID *partMatch,
               int mappingSize, VertexID **candidates, ui *candCount, std::vector<ui> &poses,
               std::vector<std::vector<VertexID>> &tuples);
-void treeJoinScope(std::vector<std::vector<VertexID>> &result, CandidateSpace &cs, const HyperTree &t,
-                   std::vector<TrieNode *> &nodes, bool *visited, bool skip);
-void emptyHeadedJoin(const HyperTree &t, CandidateSpace &cs, std::vector<TrieNode *> &nodes, bool *visited,
-                     std::vector<std::vector<VertexID>> &result, std::vector<double> &times);
 void sharedJoin(const HyperTree &t, const PrefixNode *pt, const Graph &query, CandidateSpace &cs,
                 std::vector<TrieNode *> &trieNodes, bool *visited, std::vector<std::vector<VertexID>> &result,
                 size_t &count, bool traverse);
@@ -52,8 +46,5 @@ produceResult(std::vector<std::vector<VertexID>> &result, const HyperTree &t, Ve
               const std::vector<TrieNode *> &nodes, bool *visited);
 void storeMatches(const std::vector<std::vector<VertexID>> &result, std::ofstream &outStream);
 void buildTrie(std::vector<std::vector<VertexID>> &tuples, TrieNode *root, const std::vector<VertexID> &order);
-void executeTwoBag(std::vector<std::vector<VertexID>> &result, CandidateSpace &cs, const HyperTree &t,
-                   std::vector<TrieNode *> &nodes, bool *visited);
-void getExample(const Graph &data, std::map<uint64_t, ui> &distribution);
 
 #endif //IN_MEMORY_JOIN_JOIN_H

@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/4.
+// Created by Qiyan LI on 2024/3/4.
 //
 
 #include <chrono>
@@ -21,20 +21,10 @@ void storeCard(int argc, char **argv) {
     if (memKB == 0) memKB = 16e5;
     int baselineType = cmd.getBaselineType();
     size_t budget = (size_t)1024 * memKB;
-    std::map<LabelID, Triangle *> *queryTriangle = nullptr;
-    std::map<LabelID, FourCycle *> *queryFourCycle = nullptr;
-    std::map<LabelID, ui> *queryNumTriangle = nullptr;
-    std::map<LabelID, ui> *queryNumFourCycle = nullptr;
-    std::map<LabelID, Triangle *> *dataTriangle = nullptr;
-    std::map<LabelID, FourCycle *> *dataFourCycle = nullptr;
-    std::map<LabelID, ui> *dataNumTriangle = nullptr;
-    std::map<LabelID, ui> *dataNumFourCycle = nullptr;
     Graph q, g;
     q.loadGraphFromTextFile(queryGraphPath);
     g.loadGraphFromTextFile(dataGraphPath);
-
-    CandidateSpace cs(q, g, queryTriangle, dataTriangle, queryFourCycle, dataFourCycle,
-                      queryNumTriangle, queryNumFourCycle,dataNumTriangle, dataNumFourCycle);
+    CandidateSpace cs(q, g);
     auto start = std::chrono::steady_clock::now();
     if (!cs.buildCandCFL()) {
         return;
@@ -42,8 +32,6 @@ void storeCard(int argc, char **argv) {
     auto end = std::chrono::steady_clock::now();
     std::chrono::duration<double> elapsedSeconds = end - start;
     cs.setQueryGraphWeights(q);
-    release(queryTriangle, queryFourCycle, queryNumTriangle, queryNumFourCycle, dataTriangle, dataFourCycle,
-            dataNumTriangle, dataNumFourCycle, q.getNumEdges(), g.getNumEdges());
     FHD fhd;
     q.buildFHD(fhd);
     HyperTree t;

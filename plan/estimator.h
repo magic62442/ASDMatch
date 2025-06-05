@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #ifndef IN_MEMORY_JOIN_ESTIMATOR_H
@@ -33,35 +33,6 @@ struct VertexPriority {
         if (degree != rhs.degree)
             return degree > rhs.degree;  // larger degree comes first
         return candSize < rhs.candSize;  // smaller candidate size comes first
-    }
-};
-
-struct CandidatePlan {
-    PrefixNode *pt;
-    std::vector<std::vector<VertexID>> orders;
-    std::vector<std::vector<ui>> numBackNbr;
-    std::vector<VertexID> nodePriority;
-    std::vector<double> nodeCosts;
-    int shareNum;
-    double parentCost;
-    CandidatePlan(PrefixNode *pt, const std::vector<std::vector<VertexID>> &orders, const vector<std::vector<ui>> &numBackNbr,
-                  const vector<VertexID> &nodePriority, int shareNum, double parentCost) :
-            pt(pt), orders(orders), numBackNbr(numBackNbr), nodePriority(nodePriority), shareNum(shareNum), parentCost(parentCost) {}
-
-    virtual ~CandidatePlan() = default;
-
-    bool operator<(const CandidatePlan &rhs) const {
-        if (parentCost < rhs.parentCost) return true;
-        else if (parentCost == rhs.parentCost) {
-            for (VertexID nID = 0; nID < nodePriority.size(); ++nID) {
-                if (this->numBackNbr[nID] > rhs.numBackNbr[nID])
-                    return true;
-                else if (this->numBackNbr[nID] == rhs.numBackNbr[nID]) continue;
-                else return false;
-            }
-            return shareNum > rhs.shareNum;
-        }
-        return false;
     }
 };
 

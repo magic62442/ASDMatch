@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #ifndef IN_MEMORY_JOIN_GRAPH_H
@@ -158,18 +158,7 @@ public:
             std::sort(_nbrs + _offsets[i], _nbrs + _offsets[i + 1]);
         }
     }
-    void generateRandomGraph(ui numVertices, ui numEdges);
-    Graph generateRandomSubgraph(ui numVertices, ui numEdges) const;
     void writeToTextFile(const std::string &filename) const;
 };
-
-void readGraphBinary(const std::string &file, Graph &g, std::map<LabelID, Triangle *> *&triangle, std::map<LabelID, FourCycle *> *&fourCycle, std::map<LabelID, ui> *&numTriangle, std::map<LabelID, ui> *&numFourCycle);
-void writeGraphBinary(const std::string &file, const Graph &g, std::map<LabelID, Triangle *> *&triangle, std::map<LabelID, FourCycle *> *&fourCycle, std::map<LabelID, ui> *&numTriangle, std::map<LabelID, ui> *&numFourCycle);
-void release(std::map<LabelID, Triangle *> *queryTriangle, std::map<LabelID, FourCycle *> *queryFourCycle,
-             std::map<LabelID, ui> *queryNumTriangle, std::map<LabelID, ui> *queryNumFourCycle,
-             std::map<LabelID, Triangle *> *dataTriangle, std::map<LabelID, FourCycle *> *dataFourCycle,
-             std::map<LabelID, ui> *dataNumTriangle, std::map<LabelID, ui> *dataNumFourCycle, ui qm, ui gm);
-bool canAddVertex(const Graph& query, const std::vector<VertexID>& currentSet, VertexID newVertex);
-void maxIndependentSet(const Graph& graph, const std::vector<VertexID>& subset, std::vector<VertexID>& maxSet);
 
 #endif //IN_MEMORY_JOIN_GRAPH_H

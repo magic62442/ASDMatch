@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/13.
+// Created by Qiyan LI on 2024/3/13.
 //
 
 #ifndef IN_MEMORY_JOIN_DYNAMIC_ARRAY_H

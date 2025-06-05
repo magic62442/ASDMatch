@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/9/19.
+// Created by Qiyan LI on 2024/9/19.
 //
 
 #ifndef IN_MEMORY_JOIN_SUBSET_STRUCTURE_H
@@ -86,10 +86,18 @@ struct bagSetStructure {
 
 struct bagPermuteStructure{
     std::map<uint64_t, std::unordered_map<Permutation ,double>> indepCosts;
+    std::map<uint64_t, std::unordered_map<Permutation ,double>> subtreeCosts;
     std::map<uint64_t, std::unordered_map<Permutation ,std::vector<std::vector<VertexID>>>> localOrders;
+    std::map<uint64_t, std::unordered_map<Permutation, std::vector<int>>> orderIDs;
+    std::vector<std::vector<std::vector<VertexID>>> basicOrders;
     std::map<uint64_t, uint64_t> intersections;
     void init(const std::vector<std::vector<VertexID>> &sharedAttrs, const std::vector<SubsetStructure> &dpStructures,
               const Graph &query, bool maxShare = false, bool connected = true);
+    void initSubtreeCost(const std::vector<std::vector<VertexID>> &sharedAttrs,
+                         const std::vector<SubsetStructure> &dpStructures, const Graph &query,
+                         CandidateSpace &cs, bool connected = true);
+    void initBasicOrder(const std::vector<std::vector<VertexID>> &sharedAttrs, const std::vector<SubsetStructure> &dpStructures,
+                        const Graph &query, bool maxShare = false, bool connected = true);
 };
 
 VertexID findExtraElement(uint64_t idSubsetK, uint64_t idSubsetKMinus1);
@@ -104,6 +112,9 @@ void smallCard(const Graph &query, CandidateSpace &cs);
 bool isSubset(uint64_t subset1ID, uint64_t subset2ID);
 Permutation encodePermutation(const std::vector<uint32_t>& elements);
 std::vector<uint32_t> decodePermutation(const Permutation & encoded);
+std::vector<Permutation>
+extensions(const Permutation &pi, const std::vector<VertexID> &elements, const std::vector<uint64_t> &cc,
+           const Graph &query, bool connected);
 SubsetStructure buildSubStructure(const SubsetStructure& original, uint64_t subsetID, ui k);
 SubsetStructure buildSubStructure(const SubsetStructure& original, uint64_t id1, ui k1, uint64_t id2, ui k2);
 

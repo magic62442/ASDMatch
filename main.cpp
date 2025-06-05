@@ -8,13 +8,6 @@
 #include <cassert>
 #include <iomanip>
 
-void clearCache(int &simulation) {
-    std::vector<int> data(10000000);
-    std::generate(data.begin(), data.end(), [](){ return rand() % 100; });
-    simulation = 0;
-    for (auto &d : data) simulation += d;
-}
-
 void ASDMatch(int argc, char **argv) {
     bool skip = false;
     Command cmd(argc, argv);
@@ -22,9 +15,11 @@ void ASDMatch(int argc, char **argv) {
     std::string dataGraphPath = cmd.getDataGraphPath();
     std::string resultPath = cmd.getResultPath();
     std::string dpStructPath = cmd.getDPStructPath();
+#ifdef LOCAL_COUNT
+    std::string countPath = cmd.getCountPath();
+#endif
     int memKB = cmd.getMemoryBudget();
     if (memKB == 0) memKB = 16e5;
-    int baselineType = cmd.getBaselineType();
     size_t budget = (size_t)1024 * memKB;
     Graph q, g;
     q.loadGraphFromTextFile(queryGraphPath);
@@ -103,13 +98,19 @@ void ASDMatch(int argc, char **argv) {
         outStream << "dp time: " << cardTime << std::endl;
     }
     cardTime += fhdTime;
-    int simulation;
-    clearCache(simulation);
     bool traverse = false;
+#if defined(ALL_LEVEL) || defined(COLLECT_RESULT)
+    traverse = true;
+#endif
+#ifdef LOCAL_COUNT
+    gLocalCount = std::vector<std::vector<size_t>>(g.getNumVertices(), std::vector<size_t>(q.getNumVertices(), 0));
+#endif
     int reorder = 1;
     start = std::chrono::steady_clock::now();
-    if (numNodes != 1) bagPermutationDP(q, t, cs, pt, dpStructures, minCost, reorder, true, true);
-    else simplePlan(q, t, cs, pt, visited, partMatch, candidates, candCount, minCost, nullptr, false);
+    if (numNodes != 1) optCostPlan(q, t, cs, pt, dpStructures, minCost, reorder, true, false);
+    else
+        simplePlan(q, t, cs, pt, dpStructures, visited, partMatch, candidates, candCount, minCost, nullptr,
+                   false);
     end = std::chrono::steady_clock::now();
     elapsedSeconds = end - start;
     outStream << "Planning Time: " << elapsedSeconds.count() + cardTime << std::endl;
@@ -131,7 +132,18 @@ void ASDMatch(int argc, char **argv) {
 #ifdef COLLET_GLOBAL_TIME
     outStream << "global join time: " << gGlobalTime << std::endl;
 #endif
-    t.writeToStream(outStream);
+#ifdef LOCAL_COUNT
+    std::ofstream countOutput(countPath);
+    for (VertexID v = 0; v < g.getNumVertices(); ++v) {
+        for (VertexID u = 0; u < q.getNumVertices(); ++u) {
+            if (u != q.getNumVertices() - 1)
+                countOutput << gLocalCount[v][u] << ",";
+            else
+                countOutput << gLocalCount[v][u];
+        }
+        countOutput << std::endl;
+    }
+#endif
 }
 
 int main(int argc, char **argv) {

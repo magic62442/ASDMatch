@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #ifndef IN_MEMORY_JOIN_RELATION_H
@@ -64,16 +64,6 @@ struct TrieNode {
     void addMatch(const std::vector<VertexID> &match, ui startPos);
     friend bool operator==(const TrieNode& lhs, const TrieNode& rhs) {
         if (lhs.value != rhs.value) return false;
-
-//        // If both nodes have a compression, compare the compression objects
-//        if (lhs.compression != nullptr && rhs.compression != nullptr) {
-//            if (!(*lhs.compression == *rhs.compression)) return false;
-//        } else if (lhs.compression != nullptr || rhs.compression != nullptr) {
-//            // One node has a compression and the other doesn't
-//            return false;
-//        }
-
-        // If no compression, compare children
         if (lhs.nodeChild.size() != rhs.nodeChild.size()) return false;
         for (int i = 0; i < lhs.nodeChild.size(); ++i) {
             if (!(*lhs.nodeChild[i] == *rhs.nodeChild[i])) return false;

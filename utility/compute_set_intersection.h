@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/8.
+// Created by Qiyan LI on 2024/3/8.
 //
 
 #ifndef IN_MEMORY_JOIN_COMPUTE_SET_INTERSECTION_H

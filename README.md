@@ -49,13 +49,13 @@ e 3 4
 
 ### ASDMatch.out:
 
-| Option | Description                                          |
-| ------ | ---------------------------------------------------- |
-| -q     | the query graph path                                 |
-| -d     | the data graph path                                  |
-| -s     | the cardinalities used in query optimizer (optional) |
-| -m     | the memory budget by KB. The default value is 16GB   |
-| -r     | the result path (optional)                           |
+| Option | Description                                                  |
+| ------ | ------------------------------------------------------------ |
+| -q     | the query graph path                                         |
+| -d     | the data graph path                                          |
+| -s     | the cardinalities used in query optimizer (optional)         |
+| -m     | the memory budget by KB (optional). The default value is 16GB |
+| -r     | the result path (optional)                                   |
 
 Example:
 
@@ -67,3 +67,16 @@ We can also use 'prepare.out' to precompute cardinalities.
 ```shell
 ./prepare.out -q {query_graph_path} -d {data_graph_path} -s {card_result_path}
 ```
+
+### Local subgraph counting
+
+We support local subgraph counting. First, define some MACRO in the config.h:
+
+```c
+#define ALL_LEVEL
+#define LOCAL_COUNT
+```
+
+Next, recomplie the project. 
+
+For execution, add the '-c {path_to_local_count_output}' parameter. The local count output is a csv file that has $|V_g|$ rows and $|V_q|$ columns, where each row is the local subgraph count of a data graph node for every query graph node.

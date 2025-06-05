@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/4.
+// Created by Qiyan LI on 2024/3/4.
 //
 
 #ifndef IN_MEMORY_JOIN_COMMAND_H
@@ -17,6 +17,7 @@ enum OptionKeyword {
     MemoryBudget = 5,         // -m, the memory budget
     DPStructPath = 6,         // -s, the dp structure file path
     IntegerToUse = 7,         // -i, some integer to use
+    CountPath = 8,          // -c, the path of the local count
 };
 
 class Command : public CommandParser {
@@ -58,6 +59,10 @@ public:
 
     std::string getDPStructPath() {
         return optionsValue[OptionKeyword::DPStructPath];
+    }
+
+    std::string getCountPath() {
+        return optionsValue[OptionKeyword::CountPath];
     }
 };
 

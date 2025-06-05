@@ -23,13 +23,8 @@ add_subdirectory(executable)
 add_subdirectory(utility/td)
 
 # link to GLPK
-IF(NOT APPLE)
-    include_directories($ENV{HOME}/.local/include)
-    link_directories($ENV{HOME}/.local/lib)
-ELSE()
-    include_directories(/opt/homebrew/Cellar/glpk/5.0/include)
-    link_directories(/opt/homebrew/Cellar/glpk/5.0/lib)
-ENDIF()
+include_directories(${PROJECT_SOURCE_DIR}/utility/td/glpk_lib/include)
+link_directories(${PROJECT_SOURCE_DIR}/utility/td/glpk_lib/lib)
 
 add_executable(ASDMatch.out main.cpp)
 target_link_libraries(ASDMatch.out matching)

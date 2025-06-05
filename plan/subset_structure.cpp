@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/9/19.
+// Created by Qiyan LI on 2024/9/19.
 //
 
 #include "subset_structure.h"
@@ -900,6 +900,40 @@ std::vector<uint32_t> decodePermutation(const Permutation & encoded) {
     return elements;
 }
 
+std::vector<Permutation>
+extensions(const Permutation &pi, const std::vector<VertexID> &elements, const std::vector<uint64_t> &cc,
+           const Graph &query, bool connected) {
+    std::vector<Permutation> result;
+    std::vector<VertexID> prefix = decodePermutation(pi);
+    std::vector<VertexID> notInPi;
+    for (VertexID u: elements) {
+        if (std::find(prefix.begin(), prefix.end(), u) == prefix.end())
+            notInPi.push_back(u);
+    }
+    if (notInPi.empty()) {
+        result.push_back(pi);
+        return result;
+    }
+    for (ui k = 0; k <= notInPi.size(); ++k) {
+        std::vector<uint64_t> suffixIDs;
+        std::vector<VertexID> current;
+        generateSubsetsK(notInPi, k, 0, current, suffixIDs, cc, query, connected);
+        for (uint64_t suffixID: suffixIDs) {
+            std::vector<VertexID> suffix = getSubsetFromID(suffixID, query.getNumVertices());
+            do {
+                std::vector<VertexID> newPi = prefix;
+                for (VertexID u: suffix)
+                    newPi.push_back(u);
+                if (!connected || (orderConnectivity(query, newPi)))
+                    result.push_back(encodePermutation(newPi));
+            }
+            while (std::next_permutation(suffix.begin(), suffix.end()));
+        }
+    }
+
+    return result;
+}
+
 void
 bagPermuteStructure::init(const std::vector<std::vector<VertexID>> &sharedAttrs,
                           const std::vector<SubsetStructure> &dpStructures,
@@ -928,6 +962,82 @@ bagPermuteStructure::init(const std::vector<std::vector<VertexID>> &sharedAttrs,
                     localOrders[id][pi] = localOrder;
                     if (!maxShare) indepCosts[id][pi] = remainingCost;
                     else indepCosts[id][pi] = (double)remainingOrder.size();
+                } while(std::next_permutation(sharedSet.begin(), sharedSet.end()));
+            }
+        }
+    }
+}
+
+void
+bagPermuteStructure::initBasicOrder(const std::vector<std::vector<VertexID>> &sharedAttrs,
+                                    const std::vector<SubsetStructure> &dpStructures, const Graph &query, bool maxShare,
+                                    bool connected) {
+    ui n = query.getNumVertices();
+    // costs and orders for k = 1
+    basicOrders = std::vector<std::vector<std::vector<VertexID>>>(sharedAttrs.size());
+    for (int i = 0; i < sharedAttrs.size(); ++i) {
+        uint64_t id = 1 << i;
+        const SubsetStructure &s = dpStructures[i];
+        intersections[id] = getSubsetID(sharedAttrs[i]);
+        int sz = 0;
+        for (ui k = 0; k <= sharedAttrs[i].size(); ++k) {
+            std::vector<VertexID> current;
+            std::vector<uint64_t> subsets;
+            generateSubsetsK(sharedAttrs[i], k, 0, current, subsets, s.cc, query, connected);
+            for (uint64_t sharedID: subsets) {
+                std::vector<VertexID> remainingOrder;
+                double remainingCost;
+                s.prefixPlan(sharedID, subsetSize(sharedID, query.getNumVertices()), remainingOrder, remainingCost);
+                std::vector<VertexID> sharedSet = getSubsetFromID(sharedID, query.getNumVertices());
+                do {
+                    if (connected && !orderConnectivity(query, sharedSet)) continue;
+                    Permutation pi = encodePermutation(sharedSet);
+                    std::vector<VertexID> basicOrder = sharedSet;
+                    for (VertexID u: remainingOrder) basicOrder.push_back(u);
+                    if (!maxShare) indepCosts[id][pi] = remainingCost;
+                    else indepCosts[id][pi] = (double)remainingOrder.size();
+                    orderIDs[id][pi] = std::vector<int>(sharedAttrs.size(), -1);
+                    orderIDs[id][pi][i] = sz;
+                    basicOrders[i].push_back(basicOrder);
+                    ++sz;
+                } while(std::next_permutation(sharedSet.begin(), sharedSet.end()));
+            }
+        }
+    }
+}
+
+void
+bagPermuteStructure::initSubtreeCost(const std::vector<std::vector<VertexID>> &sharedAttrs,
+                                     const std::vector<SubsetStructure> &dpStructures, const Graph &query,
+                                     CandidateSpace &cs, bool connected) {
+    ui n = query.getNumVertices();
+    // costs and orders for k = 1
+    for (int i = 0; i < sharedAttrs.size(); ++i) {
+        uint64_t id = 1 << i;
+        const SubsetStructure &s = dpStructures[i];
+        intersections[id] = getSubsetID(sharedAttrs[i]);
+        for (ui k = 0; k <= sharedAttrs[i].size(); ++k) {
+            std::vector<VertexID> current;
+            std::vector<uint64_t> subsets;
+            generateSubsetsK(sharedAttrs[i], k, 0, current, subsets, s.cc, query, connected);
+            for (uint64_t sharedID: subsets) {
+                std::vector<VertexID> remainingOrder;
+                double remainingCost;
+                s.prefixPlan(sharedID, subsetSize(sharedID, query.getNumVertices()), remainingOrder, remainingCost);
+                std::vector<VertexID> sharedSet = getSubsetFromID(sharedID, query.getNumVertices());
+                do {
+                    if (connected && !orderConnectivity(query, sharedSet)) continue;
+                    std::vector<double> costs;
+                    costs = computeCost(sharedSet, query, cs);
+                    double sharedCost = 0.0;
+                    for (int i = 0; i < sharedSet.size(); ++i) {
+                        sharedCost += costs[i];
+                    }
+                    Permutation pi = encodePermutation(sharedSet);
+                    localOrders[id][pi] = std::vector<std::vector<VertexID>>(dpStructures.size());
+                    localOrders[id][pi][i] = sharedSet;
+                    for (VertexID u: remainingOrder) localOrders[id][pi][i].push_back(u);
+                    subtreeCosts[id][pi] = remainingCost + sharedCost;
                 } while(std::next_permutation(sharedSet.begin(), sharedSet.end()));
             }
         }

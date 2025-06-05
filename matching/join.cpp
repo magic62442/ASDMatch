@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/8.
+// Created by Qiyan LI on 2024/3/8.
 //
 
 #include "join.h"
@@ -7,6 +7,9 @@
 size_t gNumResult = 0;
 size_t gNumCartesian = 0;
 size_t gNumTraverse = 0;
+#ifdef LOCAL_COUNT
+std::vector<std::vector<size_t>> gLocalCount = std::vector<std::vector<size_t>>();
+#endif
 
 ui binarySearch(const DynamicArray<TrieNode *> &child, const ui begin, const ui end, const ui target) {
     ui offset_begin = begin;
@@ -99,237 +102,6 @@ void leapFrogJoin(DynamicArray<TrieNode *> **children, ui num, ui **iters, ui &i
     delete[] iter;
 }
 
-/*
- * scope-style node join algorithm
- * for a given partition specified by the partial match, join all remaining attributes and store them in tau
- * order: attribute order, vertexParents[u]: N(u) that are before u in order
- * reverse: the reverse mapping of the attribute order
- * */
-
-void
-nodeJoinScope(const HyperTree &t, VertexID nID, CandidateSpace &cs, TrieNode *root, bool *visited, VertexID *partMatch,
-              VertexID **candidates, ui *candCount, std::vector<ui> &poses, bool skip) {
-    const HyperNode &tau = t.nodes[nID];
-    const VertexID *order = tau.attributes;
-    int mappingSize = int(tau.prefixSize);
-    if (mappingSize == tau.numAttributes) {
-        root->addMatch(partMatch, tau.attributes, tau.numAttributes, 0, nullptr, nullptr, 0);
-        return;
-    }
-    ui compressionSize = t.compressionSizes[nID];
-    const std::vector<std::vector<VertexID>> &vertexParents = tau.attributesBefore;
-    // handle the first level
-    VertexID u = order[mappingSize];
-    VertexID **neighbors = new VertexID *[tau.numAttributes];
-    ui *neighborCount = new ui[tau.numAttributes];
-    if (mappingSize == 0) {
-        memcpy(candidates[0], cs.candidateSet[u].data(), cs.candidateSet[u].size() * sizeof(VertexID));
-        candCount[0] = cs.candidateSet[u].size();
-    }
-    else {
-        if (mappingSize + compressionSize == tau.numAttributes) {
-            // compute compressions
-            VertexID **cData = new VertexID *[compressionSize];
-            ui *length = new VertexID[compressionSize];
-            for (int i = 0; i < compressionSize; ++i) {
-                u = order[mappingSize + i];
-                cData[i] = new VertexID[cs.candidateSet[u].size()];
-                const std::vector<VertexID> &parents = vertexParents[mappingSize + i];
-                for (int j = 0; j < parents.size(); ++j) {
-                    VertexID pU = parents[j];
-                    neighbors[j] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                    neighborCount[j] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                }
-                ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), cData[i], length[i]);
-            }
-            // add match and compressions to trie
-            if (!skip) root->addMatch(partMatch, tau.attributes, tau.numAttributes, 0, cData, length, compressionSize);
-            else ++gNumResult;
-            delete[] cData;
-            delete[] length;
-            return;
-        }
-        const std::vector<VertexID> &parents = vertexParents[mappingSize];
-        if (!parents.empty()) {
-            for (int i = 0; i < parents.size(); ++i) {
-                VertexID pU = parents[i];
-                neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-            }
-            ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), candidates[mappingSize], candCount[mappingSize]);
-        }
-        else {
-            VertexID cartesianParent = tau.cartesianParent[mappingSize];
-            const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-            optimizedCartesianProduct(cs, partMatch[cartesianParent], path, candidates[mappingSize], candCount[mappingSize]);
-        }
-    }
-    int depth = mappingSize;
-    while (depth >= mappingSize) {
-        while (poses[depth] < candCount[depth]) {
-            VertexID v = candidates[depth][poses[depth]];
-            ++poses[depth];
-            if (visited[v]) continue;
-            visited[v] = true;
-            partMatch[order[depth]] = v;
-            if (depth + compressionSize + 1 == tau.numAttributes) {
-                // compute compressions
-                VertexID **cData = new VertexID *[compressionSize];
-                ui *length = new VertexID[compressionSize];
-                for (int i = 0; i < compressionSize; ++i) {
-                    u = order[depth + i + 1];
-                    cData[i] = new VertexID[cs.candidateSet[u].size()];
-                    const std::vector<VertexID> &parents = vertexParents[depth + i + 1];
-                    for (int j = 0; j < parents.size(); ++j) {
-                        VertexID pU = parents[j];
-                        neighbors[j] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[j] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), cData[i], length[i]);
-                }
-                // add match and compressions to trie
-                if (!skip) root->addMatch(partMatch, tau.attributes, tau.numAttributes, 0, cData, length, compressionSize);
-                else ++gNumResult;
-                delete[] cData;
-                delete[] length;
-                visited[partMatch[order[depth]]] = false;
-            }
-            else {
-                ++depth;
-                poses[depth] = 0;
-                u = order[depth];
-                const std::vector<VertexID> &parents = vertexParents[depth];
-                if (!parents.empty()) {
-                    for (int i = 0; i < parents.size(); ++i) {
-                        VertexID pU = parents[i];
-                        neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), candidates[depth], candCount[depth]);
-                }
-                else {
-                    VertexID cartesianParent = tau.cartesianParent[depth];
-                    const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-                    optimizedCartesianProduct(cs, partMatch[cartesianParent], path, candidates[depth], candCount[depth]);
-                }
-            }
-        }
-        --depth;
-        if (depth >= mappingSize) visited[partMatch[order[depth]]] = false;
-    }
-
-    delete[] neighbors;
-    delete[] neighborCount;
-}
-
-void nodeJoinScope(const HyperTree &t, VertexID nID, CandidateSpace &cs, bool *visited, VertexID *partMatch,
-                   VertexID **candidates, ui *candCount, std::vector<ui> &poses) {
-    const HyperNode &tau = t.nodes[nID];
-    const VertexID *order = tau.attributes;
-    int mappingSize = int(tau.prefixSize);
-    if (mappingSize == tau.numAttributes) {
-        return;
-    }
-    ui compressionSize = t.compressionSizes[nID];
-    const std::vector<std::vector<VertexID>> &vertexParents = tau.attributesBefore;
-    // handle the first level
-    VertexID u = order[mappingSize];
-    VertexID **neighbors = new VertexID *[tau.numAttributes];
-    ui *neighborCount = new ui[tau.numAttributes];
-    if (mappingSize == 0) {
-        memcpy(candidates[0], cs.candidateSet[u].data(), cs.candidateSet[u].size() * sizeof(VertexID));
-        candCount[0] = cs.candidateSet[u].size();
-    }
-    else {
-        if (mappingSize + compressionSize == tau.numAttributes) {
-            // compute compressions
-            VertexID **cData = new VertexID *[compressionSize];
-            ui *length = new VertexID[compressionSize];
-            for (int i = 0; i < compressionSize; ++i) {
-                u = order[mappingSize + i];
-                cData[i] = new VertexID[cs.candidateSet[u].size()];
-                const std::vector<VertexID> &parents = vertexParents[mappingSize + i];
-                for (int j = 0; j < parents.size(); ++j) {
-                    VertexID pU = parents[j];
-                    neighbors[j] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                    neighborCount[j] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                }
-                ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), cData[i], length[i]);
-            }
-            delete[] cData;
-            delete[] length;
-            return;
-        }
-        const std::vector<VertexID> &parents = vertexParents[mappingSize];
-        if (!parents.empty()) {
-            for (int i = 0; i < parents.size(); ++i) {
-                VertexID pU = parents[i];
-                neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-            }
-            ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), candidates[mappingSize], candCount[mappingSize]);
-        }
-        else {
-            VertexID cartesianParent = tau.cartesianParent[mappingSize];
-            const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-            optimizedCartesianProduct(cs, partMatch[cartesianParent], path, candidates[mappingSize], candCount[mappingSize]);
-        }
-    }
-    int depth = mappingSize;
-    while (depth >= mappingSize) {
-        while (poses[depth] < candCount[depth]) {
-            VertexID v = candidates[depth][poses[depth]];
-            ++poses[depth];
-            if (visited[v]) continue;
-            visited[v] = true;
-            partMatch[order[depth]] = v;
-            if (depth + compressionSize + 1 == tau.numAttributes) {
-                // compute compressions
-                VertexID **cData = new VertexID *[compressionSize];
-                ui *length = new VertexID[compressionSize];
-                for (int i = 0; i < compressionSize; ++i) {
-                    u = order[depth + i + 1];
-                    cData[i] = new VertexID[cs.candidateSet[u].size()];
-                    const std::vector<VertexID> &parents = vertexParents[depth + i + 1];
-                    for (int j = 0; j < parents.size(); ++j) {
-                        VertexID pU = parents[j];
-                        neighbors[j] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[j] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), cData[i], length[i]);
-                }
-                delete[] cData;
-                delete[] length;
-                visited[partMatch[order[depth]]] = false;
-            }
-            else {
-                ++depth;
-                poses[depth] = 0;
-                u = order[depth];
-                const std::vector<VertexID> &parents = vertexParents[depth];
-                if (!parents.empty()) {
-                    for (int i = 0; i < parents.size(); ++i) {
-                        VertexID pU = parents[i];
-                        neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), candidates[depth], candCount[depth]);
-                }
-                else {
-                    VertexID cartesianParent = tau.cartesianParent[depth];
-                    const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-                    optimizedCartesianProduct(cs, partMatch[cartesianParent], path, candidates[depth], candCount[depth]);
-                }
-            }
-        }
-        --depth;
-        if (depth >= mappingSize) visited[partMatch[order[depth]]] = false;
-    }
-
-    delete[] neighbors;
-    delete[] neighborCount;
-}
-
 void nodeJoin(const HyperTree &t, VertexID nID, CandidateSpace &cs, TrieNode *root, bool *visited, VertexID *partMatch,
               int mappingSize, VertexID **candidates, ui *candCount, std::vector<ui> &poses,
               std::vector<std::vector<VertexID>> &tuples) {
@@ -409,275 +181,6 @@ void nodeJoin(const HyperTree &t, VertexID nID, CandidateSpace &cs, TrieNode *ro
     }
     delete[] neighbors;
     delete[] neighborCount;
-}
-
-// nodes are roots of tries, and the children are the 0th attribute of each node
-void treeJoinScope(std::vector<std::vector<VertexID>> &result, CandidateSpace &cs, const HyperTree &t,
-                   std::vector<TrieNode *> &nodes, bool *visited, bool skip) {
-    VertexID *partMatch = new VertexID[t.numAttributes];
-    VertexID ***nodeCandidates = new VertexID **[nodes.size()];
-    ui **nodeCandCount = new ui *[nodes.size()];
-    ui ***iters = new ui **[t.extendLevel];
-    ui *iterSizes = new ui [t.extendLevel];
-    std::vector<std::vector<ui>> nodePoses(nodes.size());
-    for (VertexID nID = 0; nID < nodes.size(); ++nID) {
-        const HyperNode &tau = t.nodes[nID];
-        nodeCandidates[nID]= new VertexID *[tau.numAttributes];
-        nodeCandCount[nID] = new ui[tau.numAttributes];
-        nodePoses[nID] = std::vector<ui>(tau.numAttributes, 0);
-        for (int i = 0; i < tau.numAttributes; ++i) {
-            VertexID u = tau.attributes[i];
-            nodeCandidates[nID][i] = new VertexID [cs.candidateSet[u].size()];
-            nodeCandCount[nID][i] = 0;
-        }
-    }
-    for (int i = 0; i < t.extendLevel; ++i) {
-        ui depth = t.defaultPartition.size() + i;
-        VertexID u = t.globalOrder[depth];
-        iters[i] = new ui *[cs.candidateSet[u].size()];
-        for (int j = 0; j < cs.candidateSet[u].size(); ++j) {
-            iters[i][j] = new ui[t.nIDs[depth].size()];
-        }
-        iterSizes[i] = 0;
-    }
-    if (t.defaultPartition.empty()) {
-        for (VertexID nID = 0; nID < t.numNodes; ++nID) {
-            nodeJoinScope(t, nID, cs, nodes[nID], visited, partMatch, nodeCandidates[nID], nodeCandCount[nID],
-                          nodePoses[nID], skip);
-        }
-        if (!skip) {
-            leapFrogTrieJoin(result, t, cs, t.globalOrder, partMatch, 0, nodes,
-                             t.compressionSizes, visited, t.extendLevel, t.nIDs, iters, iterSizes);
-        }
-        delete[] partMatch;
-        for (int i = 0; i < nodes.size(); ++i) {
-            delete[] nodeCandCount[i];
-            for (int j = 0; j < t.nodes[i].numAttributes; ++j) {
-                delete[] nodeCandidates[i][j];
-            }
-            delete[] nodeCandidates[i];
-        }
-        delete[] nodeCandidates;
-        delete[] nodeCandCount;
-        for (int i = 0; i < t.extendLevel; ++i) {
-            int depth = t.defaultPartition.size() + i;
-            VertexID u = t.globalOrder[depth];
-            for (int j = 0; j < cs.candidateSet[u].size(); ++j) {
-                delete iters[i][j];
-            }
-            delete iters[i];
-        }
-        delete[] iters;
-        delete[] iterSizes;
-        return;
-    }
-    VertexID **pCandidates = new VertexID *[t.defaultPartition.size()];
-    ui *pCandCount = new ui[t.defaultPartition.size()];
-    const std::vector<std::vector<VertexID>> &vertexParents = t.attributesBefore;
-    for (int i = 0; i < t.defaultPartition.size(); ++i) {
-        VertexID u = t.defaultPartition[i];
-        pCandidates[i] = new VertexID[cs.candidateSet[u].size()];
-        pCandCount[i] = 0;
-    }
-    std::vector<ui> pPoses(t.defaultPartition.size(), 0);
-
-    VertexID u = t.defaultPartition[0];
-    pCandidates[0] = cs.candidateSet[u].data();
-    pCandCount[0] = cs.candidateSet[u].size();
-    VertexID **neighbors = new VertexID *[t.defaultPartition.size()];
-    ui *neighborCount = new ui[t.defaultPartition.size()];
-    std::vector<std::vector<TrieNode *>> traversedNodes(nodes.size());
-    std::vector<TrieNode *> lastNodes(nodes.size());
-    for (VertexID nID = 0; nID < nodes.size(); ++nID) {
-        traversedNodes[nID].push_back(nodes[nID]);
-    }
-    int depth = 0;
-    while (depth >= 0) {
-        while (pPoses[depth] < pCandCount[depth]) {
-            VertexID v = pCandidates[depth][pPoses[depth]];
-            ++pPoses[depth];
-            if (visited[v]) continue;
-            visited[v] = true;
-            partMatch[t.defaultPartition[depth]] = v;
-            for (VertexID nID: t.nodesAtStep[depth]) {
-                for (int i = 0; i < nodePoses[nID].size(); ++i)
-                    nodePoses[nID][i] = 0;
-                nodeJoinScope(t, nID, cs, nodes[nID], visited, partMatch, nodeCandidates[nID], nodeCandCount[nID],
-                              nodePoses[nID], false);
-                TrieNode *pointer = traversedNodes[nID].back();
-                while (traversedNodes[nID].size() < t.nodes[nID].prefixSize + 1) {
-                    pointer = pointer->nodeChild[0];
-                    traversedNodes[nID].push_back(pointer);
-                }
-            }
-            if (depth < t.defaultPartition.size() - 1) {
-                // match the next partition attribute
-                ++depth;
-                pPoses[depth] = 0;
-                u = t.defaultPartition[depth];
-                const std::vector<VertexID> &parents = vertexParents[depth];
-                if (!parents.empty()) {
-                    for (int i = 0; i < parents.size(); ++i) {
-                        VertexID pU = parents[i];
-                        neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), pCandidates[depth], pCandCount[depth]);
-                }
-                else {
-                    VertexID cartesianParent = t.cartesianParent[depth];
-                    const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-                    optimizedCartesianProduct(cs, partMatch[cartesianParent], path, pCandidates[depth], pCandCount[depth]);
-                }
-            }
-            else {
-                // the tree join part
-                for (VertexID nID = 0; nID < nodes.size(); ++nID) {
-                    lastNodes[nID] = traversedNodes[nID].back();
-                }
-                leapFrogTrieJoin(result, t, cs, t.globalOrder, partMatch, t.defaultPartition.size(),
-                                 lastNodes, t.compressionSizes, visited, t.extendLevel, t.nIDs, iters, iterSizes);
-                visited[partMatch[t.defaultPartition[depth]]] = false;
-                // delete the trie rooted at this partial match
-                for (VertexID nID: t.nIDs[depth]) {
-                    traversedNodes[nID].pop_back();
-                    traversedNodes[nID].back()->nodeChild.pop_front();
-                }
-            }
-        }
-        --depth;
-        if (depth >= 0) {
-            visited[partMatch[t.defaultPartition[depth]]] = false;
-            // delete the trie rooted at this partial match
-            for (VertexID nID: t.nIDs[depth]) {
-                traversedNodes[nID].pop_back();
-                traversedNodes[nID].back()->nodeChild.pop_front();
-            }
-        }
-    }
-
-    delete[] partMatch;
-    delete[] neighbors;
-    for (int i = 0; i < nodes.size(); ++i) {
-        delete[] nodeCandCount[i];
-        for (int j = 0; j < t.nodes[i].numAttributes; ++j) {
-            delete[] nodeCandidates[i][j];
-        }
-        delete[] nodeCandidates[i];
-    }
-    delete[] nodeCandidates;
-    delete[] nodeCandCount;
-    for (int i = 0; i < t.extendLevel; ++i) {
-        depth = t.defaultPartition.size() + i;
-        u = t.globalOrder[depth];
-        for (int j = 0; j < cs.candidateSet[u].size(); ++j) {
-            delete[] iters[i][j];
-        }
-        delete[] iters[i];
-    }
-    delete[] iters;
-    delete[] iterSizes;
-}
-
-
-// for each tree node, set the global join attribute order as: 1. parent shared attributes
-// 2. children shared attributes 3. remaining attributes
-void emptyHeadedJoin(const HyperTree &t, CandidateSpace &cs, std::vector<TrieNode *> &nodes, bool *visited,
-                     std::vector<std::vector<VertexID>> &result, std::vector<double> &times) {
-    VertexID *partMatch = new VertexID[cs.candidateSet.size()];
-    for (VertexID nID = 0; nID < t.numNodes; ++nID) {
-        auto start = std::chrono::steady_clock::now();
-        std::vector<std::vector<VertexID>> tuples;
-        const HyperNode &tau = t.nodes[nID];
-        // local join
-        const std::vector<std::vector<VertexID>> &vertexParents = tau.attributesBefore;
-        VertexID **candidates = new VertexID *[tau.numAttributes];
-        ui *candCount = new ui[tau.numAttributes];
-        ui *poses = new ui[tau.numAttributes];
-        for (int i = 0; i < tau.numAttributes; ++i) {
-            candidates[i] = new VertexID[cs.candidateSet[tau.attributes[i]].size()];
-            candCount[i] = 0;
-            poses[i] = 0;
-        }
-        VertexID **neighbors = new VertexID *[tau.numAttributes];
-        ui *neighborCount = new ui[tau.numAttributes];
-        VertexID u = tau.attributes[0];
-        memcpy(candidates[0], cs.candidateSet[u].data(), cs.candidateSet[u].size() * sizeof(VertexID));
-        candCount[0] = cs.candidateSet[u].size();
-        int depth = 0;
-        while (depth >= 0) {
-            while (poses[depth] < candCount[depth]) {
-                VertexID v = candidates[depth][poses[depth]];
-                ++poses[depth];
-                if (visited[v]) continue;
-                visited[v] = true;
-                partMatch[tau.attributes[depth]] = v;
-                if (depth == tau.numAttributes - 1) {
-                    std::vector<VertexID> tuple(tau.numAttributes);
-                    for (int i = 0; i < tau.numAttributes; ++i) {
-                        tuple[i] = partMatch[tau.attributes[i]];
-                    }
-                    tuples.push_back(tuple);
-                    visited[partMatch[tau.attributes[depth]]] = false;
-                }
-                else {
-                    ++depth;
-                    poses[depth] = 0;
-                    u = tau.attributes[depth];
-                    const std::vector<VertexID> &parents = vertexParents[depth];
-                    if (!parents.empty()) {
-                        for (int i = 0; i < parents.size(); ++i) {
-                            VertexID pU = parents[i];
-                            neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                            neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                        }
-                        ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), candidates[depth], candCount[depth]);
-                    }
-                    else {
-                        VertexID cartesianParent = tau.cartesianParent[depth];
-                        const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-                        optimizedCartesianProduct(cs, partMatch[cartesianParent], path, candidates[depth], candCount[depth]);
-                    }
-                }
-            }
-            --depth;
-            if (depth >= 0) visited[partMatch[tau.attributes[depth]]] = false;
-        }
-        for (int i = 0; i < tau.numAttributes; ++i) {
-            delete[] candidates[i];
-        }
-        delete[] candidates;
-        delete[] candCount;
-        delete[] poses;
-        delete[] neighbors;
-        delete[] neighborCount;
-        buildTrie(tuples, nodes[nID], t.trieOrder[nID]);
-        auto end = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsedSeconds = end - start;
-        times.push_back(elapsedSeconds.count());
-    }
-    ui ***iters = new ui **[t.extendLevel];
-    ui *iterSizes = new ui [t.extendLevel];
-    for (int i = 0; i < t.extendLevel; ++i) {
-        VertexID u = t.globalOrder[i];
-        iters[i] = new ui *[cs.candidateSet[u].size()];
-        for (int j = 0; j < cs.candidateSet[u].size(); ++j) {
-            iters[i][j] = new ui[t.nIDs[i].size()];
-        }
-        iterSizes[i] = 0;
-    }
-    leapFrogTrieJoin(result, t, cs, t.globalOrder, partMatch, t.defaultPartition.size(),
-                     nodes, t.compressionSizes, visited, t.extendLevel, t.nIDs, iters, iterSizes);
-    for (int i = 0; i < t.extendLevel; ++i) {
-        VertexID u = t.globalOrder[i];
-        for (int j = 0; j < cs.candidateSet[u].size(); ++j) {
-            delete[] iters[i][j];
-        }
-        delete[] iters[i];
-    }
-    delete[] iters;
-    delete[] iterSizes;
-    delete[] partMatch;
 }
 
 void sharedJoin(const HyperTree &t, const PrefixNode *pt, const Graph &query, CandidateSpace &cs,
@@ -1166,7 +669,7 @@ void globalJoin(std::vector<std::vector<VertexID>> &result, size_t &count, const
                 std::vector<std::vector<DynamicArray<TrieNode *> *>> &edgeColumns) {
     const HyperNode &globalNode = t.nodes[t.numNodes - 1];
     if (globalNode.numAttributes == mappingSize) {
-#ifdef COLLECT_RESULT
+#ifdef ALL_LEVEL
         if (traversal) traverse(result, t, t.globalOrder, partMatch, mappingSize, nodes, visited);
 #else
         traverse(count, query, t, t.globalOrder, partMatch, mappingSize, nodes, visited, t.extendLevel);
@@ -1241,7 +744,7 @@ void globalJoin(std::vector<std::vector<VertexID>> &result, size_t &count, const
                 lastNodes[nID] = traversedNodes[nID].back();
             }
             if (depth + 1 + mappingSize == globalNode.numAttributes) {
-#ifdef COLLECT_RESULT
+#ifdef ALL_LEVEL
                 if (traversal) traverse(result, t, t.globalOrder, partMatch, mappingSize + depth + 1, lastNodes, visited);
 #else
                 if (t.extendLevel != globalNode.numAttributes) {
@@ -1292,7 +795,7 @@ void globalJoin(std::vector<std::vector<VertexID>> &result, size_t &count, const
             }
         }
         --depth;
-#ifndef COLLECT_RESULT
+#ifndef ALL_LEVEL
         if (depth + 1 + mappingSize == t.extendLevel && !tuples.empty()) {
             buildTrie(tuples, lastNodes[t.numNodes - 1], t.trieOrder[t.numNodes - 1]);
             traverse(count, query, t, t.globalOrder, partMatch, mappingSize + depth + 1, lastNodes, visited, t.extendLevel);
@@ -1313,7 +816,6 @@ void globalJoin(std::vector<std::vector<VertexID>> &result, size_t &count, const
     delete[] children;
 }
 
-// call this function when a match of shared attributes is found
 void traverse(std::vector<std::vector<VertexID>> &result, const HyperTree &t, const std::vector<VertexID> &order,
               VertexID *partMatch, int mappingSize, const std::vector<TrieNode *> &nodes, bool *visited) {
 //#ifdef COLLECT_STATISTICS
@@ -1337,6 +839,7 @@ void traverse(std::vector<std::vector<VertexID>> &result, const HyperTree &t, co
         produceResult(result, t, partMatch, nodes, visited);
         return;
     }
+
     std::vector<TrieNode *> lastNodes(numNodes);
     std::vector<ui> poses(totalLevel, 0);
     std::vector<ui> counts(totalLevel, 0);
@@ -1345,8 +848,13 @@ void traverse(std::vector<std::vector<VertexID>> &result, const HyperTree &t, co
         traversedNodes[nID].push_back(nodes[nID]);
         lastNodes[nID] = nodes[nID];
     }
-    // initialize the first level
     VertexID firstLevelNID = t.nIDs[mappingSize][0];
+#if !defined(COLECT_RESULT) && !defined(LOCAL_COUNT)
+    if (totalLevel == 1) {
+        gNumResult += lastNodes[firstLevelNID] ->numTuples(visited);
+        return;
+    }
+#endif
     counts[0] = traversedNodes[firstLevelNID][0]->nodeChild.size();
     int depth = 0;
     while (depth >= 0) {
@@ -1360,6 +868,20 @@ void traverse(std::vector<std::vector<VertexID>> &result, const HyperTree &t, co
             partMatch[order[mappingSize + depth]] = v;
             traversedNodes[nID].push_back(traversedNodes[nID].back()->nodeChild[childPos]);
             lastNodes[nID] = traversedNodes[nID].back();
+#if !defined(COLECT_RESULT) && !defined(LOCAL_COUNT)
+            if (depth == totalLevel - 2) {
+                gNumResult += lastNodes[t.nIDs.back()[0]]->numTuples(visited);
+                traversedNodes[nID].pop_back();
+                lastNodes[nID] = traversedNodes[nID].back();
+                visited[v] = false;
+            }
+            else {
+                ++depth;
+                poses[depth] = 0;
+                nID = t.nIDs[mappingSize + depth][0];
+                counts[depth] = lastNodes[nID]->nodeChild.size();
+            }
+#else
             if (depth == totalLevel - 1) {
                 produceResult(result, t, partMatch, lastNodes, visited);
                 traversedNodes[nID].pop_back();
@@ -1372,6 +894,7 @@ void traverse(std::vector<std::vector<VertexID>> &result, const HyperTree &t, co
                 nID = t.nIDs[mappingSize + depth][0];
                 counts[depth] = lastNodes[nID]->nodeChild.size();
             }
+#endif
         }
         --depth;
         if (depth >= 0) {
@@ -1509,6 +1032,13 @@ produceResult(std::vector<std::vector<VertexID>> &result, const HyperTree &t, Ve
 #ifdef COLLECT_RESULT
         result.emplace_back(partMatch, partMatch + t.numAttributes);
 #endif
+#ifdef LOCAL_COUNT
+        for (int i = 0; i < t.globalOrder.size(); ++i) {
+            VertexID u = t.globalOrder[i];
+            VertexID v = partMatch[u];
+            ++gLocalCount[v][u];
+        }
+#endif
 #ifdef COLLECT_STATISTICS
         ++gNumResult;
 #endif
@@ -1591,197 +1121,4 @@ void buildTrie(std::vector<std::vector<VertexID>> &tuples, TrieNode *root, const
     for (const auto &tuple : tuples)
         root->addMatch(tuple, 0);
     tuples.clear();
-}
-
-void executeTwoBag(std::vector<std::vector<VertexID>> &result, CandidateSpace &cs, const HyperTree &t,
-                   std::vector<TrieNode *> &nodes, bool *visited) {
-    VertexID *partMatch = new VertexID[t.numAttributes];
-    VertexID ***nodeCandidates = new VertexID **[nodes.size()];
-    ui **nodeCandCount = new ui *[nodes.size()];
-    std::vector<std::vector<ui>> nodePoses(nodes.size());
-    for (VertexID nID = 0; nID < nodes.size(); ++nID) {
-        const HyperNode &tau = t.nodes[nID];
-        nodeCandidates[nID]= new VertexID *[tau.numAttributes];
-        nodeCandCount[nID] = new ui[tau.numAttributes];
-        nodePoses[nID] = std::vector<ui>(tau.numAttributes, 0);
-        for (int i = 0; i < tau.numAttributes; ++i) {
-            VertexID u = tau.attributes[i];
-            nodeCandidates[nID][i] = new VertexID [cs.candidateSet[u].size()];
-            nodeCandCount[nID][i] = 0;
-        }
-    }
-    if (t.defaultPartition.empty()) {
-        for (VertexID nID = 0; nID < t.numNodes; ++nID) {
-            nodeJoinScope(t, nID, cs, visited, partMatch, nodeCandidates[nID], nodeCandCount[nID], nodePoses[nID]);
-        }
-        return;
-    }
-    VertexID **pCandidates = new VertexID *[t.defaultPartition.size()];
-    ui *pCandCount = new ui[t.defaultPartition.size()];
-    const std::vector<std::vector<VertexID>> &vertexParents = t.attributesBefore;
-    for (int i = 0; i < t.defaultPartition.size(); ++i) {
-        VertexID u = t.defaultPartition[i];
-        pCandidates[i] = new VertexID[cs.candidateSet[u].size()];
-        pCandCount[i] = 0;
-    }
-    std::vector<ui> pPoses(t.defaultPartition.size(), 0);
-
-    VertexID u = t.defaultPartition[0];
-    pCandidates[0] = cs.candidateSet[u].data();
-    pCandCount[0] = cs.candidateSet[u].size();
-    VertexID **neighbors = new VertexID *[t.defaultPartition.size()];
-    ui *neighborCount = new ui[t.defaultPartition.size()];
-    int depth = 0;
-    while (depth >= 0) {
-        while (pPoses[depth] < pCandCount[depth]) {
-            VertexID v = pCandidates[depth][pPoses[depth]];
-            ++pPoses[depth];
-            if (visited[v]) continue;
-            visited[v] = true;
-            partMatch[t.defaultPartition[depth]] = v;
-            for (VertexID nID: t.nodesAtStep[depth]) {
-                for (int i = 0; i < nodePoses[nID].size(); ++i)
-                    nodePoses[nID][i] = 0;
-                nodeJoinScope(t, nID, cs, visited, partMatch, nodeCandidates[nID], nodeCandCount[nID], nodePoses[nID]);
-            }
-            if (depth < t.defaultPartition.size() - 1) {
-                // match the next partition attribute
-                ++depth;
-                pPoses[depth] = 0;
-                u = t.defaultPartition[depth];
-                const std::vector<VertexID> &parents = vertexParents[depth];
-                if (!parents.empty()) {
-                    for (int i = 0; i < parents.size(); ++i) {
-                        VertexID pU = parents[i];
-                        neighbors[i] = cs.candidateEdge[pU][partMatch[pU]][u].data();
-                        neighborCount[i] = cs.candidateEdge[pU][partMatch[pU]][u].size();
-                    }
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCount, parents.size(), pCandidates[depth], pCandCount[depth]);
-                }
-                else {
-                    VertexID cartesianParent = t.cartesianParent[depth];
-                    const std::vector<VertexID> &path = cs.reconstructPath(cartesianParent, u);
-                    optimizedCartesianProduct(cs, partMatch[cartesianParent], path, pCandidates[depth], pCandCount[depth]);
-                }
-            }
-            else {
-                visited[v] = false;
-            }
-        }
-        --depth;
-        if (depth >= 0) {
-            visited[partMatch[t.defaultPartition[depth]]] = false;
-        }
-    }
-    delete[] partMatch;
-    delete[] neighbors;
-    for (int i = 0; i < nodes.size(); ++i) {
-        delete[] nodeCandCount[i];
-        for (int j = 0; j < t.nodes[i].numAttributes; ++j) {
-            delete[] nodeCandidates[i][j];
-        }
-        delete[] nodeCandidates[i];
-    }
-    delete[] nodeCandidates;
-    delete[] nodeCandCount;
-}
-
-void getExample(const Graph &data, std::map<uint64_t, ui> &distribution) {
-    ui n = data.getNumVertices();
-    VertexID **candidates = new VertexID *[6];
-    VertexID **neighbors = new VertexID *[6];
-    for (int i = 0; i < 6; ++i) {
-        candidates[i] = new VertexID [n];
-    }
-    ui *candCount = new ui[6];
-    ui *neighborCounts = new ui[6];
-    bool *visited = new bool[n];
-    memset(visited, false, sizeof(bool) * n);
-    for (VertexID v1 = 0; v1 < n; ++v1) {
-        visited[v1] = true;
-        ui numV1Nbr;
-        VertexID *v1Nbr = data.getNeighbors(v1, numV1Nbr);
-        for (int i2 = 0; i2 < numV1Nbr; ++i2) {
-            VertexID v2 = v1Nbr[i2];
-            if (v2 < v1) continue;
-            visited[v2] = true;
-            ui numV2Nbr;
-            VertexID *v2Nbr = data.getNeighbors(v2, numV2Nbr);
-            neighbors[0] = v1Nbr;
-            neighbors[1] = v2Nbr;
-            neighborCounts[0] = numV1Nbr;
-            neighborCounts[1] = numV2Nbr;
-            ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCounts, 2, candidates[2], candCount[2]);
-            for (int i3 = 0; i3 < candCount[2]; ++i3) {
-                VertexID v3 = candidates[2][i3];
-                if (visited[v3]) continue;
-                visited[v3] = true;
-                for (int i4 = i3 + 1; i4 < candCount[2]; ++i4) {
-                    VertexID v4 = candidates[2][i4];
-                    if (visited[v4]) continue;
-                    visited[v4] = true;
-                    ui numV3Nbr, numV4Nbr;
-                    VertexID *v3Nbr = data.getNeighbors(v3, numV3Nbr);
-                    VertexID *v4Nbr = data.getNeighbors(v4, numV4Nbr);
-                    neighbors[0] = v1Nbr;
-                    neighbors[1] = v3Nbr;
-                    neighbors[2] = v4Nbr;
-                    neighborCounts[0] = numV1Nbr;
-                    neighborCounts[1] = numV3Nbr;
-                    neighborCounts[2] = numV4Nbr;
-                    ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCounts, 3, candidates[4], candCount[4]);
-                    for (int i5 = 0; i5 < candCount[4]; ++i5) {
-                        VertexID v5 = candidates[4][i5];
-                        if (visited[v5]) continue;
-                        visited[v5] = true;
-                        neighbors[0] = v2Nbr;
-                        neighbors[1] = v3Nbr;
-                        neighbors[2] = v4Nbr;
-                        neighborCounts[0] = numV2Nbr;
-                        neighborCounts[1] = numV3Nbr;
-                        neighborCounts[2] = numV4Nbr;
-                        ComputeSetIntersection::LeapfrogJoin(neighbors, neighborCounts, 3, candidates[5], candCount[5]);
-                        if (candCount[5] == 4 && candidates[5][2] == candidates[5][3]) {
-                            printArray(neighbors, neighborCounts, 3);
-                        }
-                        for (int i6 = 0; i6 < candCount[5]; ++i6) {
-                            VertexID v6 = candidates[5][i6];
-                            if (visited[v6]) continue;
-                            uint64_t id1 = data.getVertexLabel(v3) + data.getVertexLabel(v1) * 100 +
-                                    data.getVertexLabel(v2) * 1e4 + data.getVertexLabel(v4) * 1e6 +
-                                    data.getVertexLabel(v5) * 1e8 + data.getVertexLabel(v6) * 1e10;
-                            if (distribution.find(id1) == distribution.end()) distribution[id1] = 1;
-                            else distribution[id1] += 1;
-                            if (id1 == 0) ++gNumResult;
-                            uint64_t id2 = data.getVertexLabel(v4) + data.getVertexLabel(v1) * 100 +
-                                           data.getVertexLabel(v2) * 1e4 + data.getVertexLabel(v3) * 1e6 +
-                                           data.getVertexLabel(v5) * 1e8 + data.getVertexLabel(v6) * 1e10;
-                            if (distribution.find(id2) == distribution.end()) distribution[id2] = 1;
-                            else distribution[id2] += 1;
-                            uint64_t id3 = data.getVertexLabel(v3) + data.getVertexLabel(v2) * 100 +
-                                           data.getVertexLabel(v1) * 1e4 + data.getVertexLabel(v4) * 1e6 +
-                                           data.getVertexLabel(v6) * 1e8 + data.getVertexLabel(v5) * 1e10;
-                            if (distribution.find(id3) == distribution.end()) distribution[id3] = 1;
-                            else distribution[id3] += 1;
-                            uint64_t id4 = data.getVertexLabel(v4) + data.getVertexLabel(v2) * 100 +
-                                           data.getVertexLabel(v1) * 1e4 + data.getVertexLabel(v3) * 1e6 +
-                                           data.getVertexLabel(v6) * 1e8 + data.getVertexLabel(v5) * 1e10;
-                            if (distribution.find(id4) == distribution.end()) distribution[id4] = 1;
-                            else distribution[id4] += 1;
-                        }
-                        visited[v5] = false;
-                    }
-                    visited[v4] = false;
-                }
-                visited[v3] = false;
-            }
-            visited[v2] = false;
-        }
-        visited[v1] = false;
-    }
-    for (int i = 0; i < 6; ++i) delete[] candidates[i];
-    delete[] neighbors;
-    delete[] candidates;
-    delete[] candCount;
-    delete[] visited;
 }

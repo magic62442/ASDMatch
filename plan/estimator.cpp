@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #include "estimator.h"
@@ -38,8 +38,6 @@ void initPoses(const std::vector<VertexID> &order, const Graph &query, std::vect
     }
 }
 
-// for a cartesian product at attribute u', find a path from a matched attribute u to u'
-// use those that are reachable from v instead of all candidates of u'
 void
 optimizedCartesianProduct(CandidateSpace &cs, VertexID v, const std::vector<VertexID> &path, VertexID *candidate,
                           ui &candCount) {
@@ -260,9 +258,6 @@ cardEstimateLabeled(const std::vector<VertexID> &order, const std::vector<std::v
             else {
                 // randomly sample a subset of candidates. set the number of samples
                 ui sampleSize;
-//                if (totalCandCount[depth] >= 16) sampleSize = totalCandCount[depth] / SAMPLE_PORTION_LABELED;
-//                else if (totalCandCount[depth] >= 4) sampleSize = totalCandCount[depth] * 2 / SAMPLE_PORTION_LABELED;
-//                else sampleSize = totalCandCount[depth];
                 sampleSize = totalCandCount[depth] / SAMPLE_PORTION_LABELED;
                 sampleSize = std::min(numSamples[depth], sampleSize);
                 if (totalCandCount[depth] != 0 && sampleSize == 0) sampleSize = 1;
@@ -481,41 +476,6 @@ std::vector<VertexID> RIOrder(const Graph &query) {
     }
 
     return order;
-}
-
-std::vector<VertexID> readLastLineAsVector(const std::string& filename) {
-    std::ifstream file(filename, std::ios::in);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open the file!" << std::endl;
-        return {};
-    }
-    std::string line;
-    std::string lastLine;
-    while (std::getline(file, line)) {
-        lastLine = line;
-    }
-    file.close();
-    std::vector<VertexID> vertices;
-    std::string prefix = "Order: ";
-    if (lastLine.find(prefix) == 0) {
-        lastLine = lastLine.substr(prefix.length());
-    } else {
-        std::cerr << "Error: Last line does not start with 'Order: '" << std::endl;
-        return {};
-    }
-    std::stringstream ss(lastLine);
-    std::string token;
-    while (std::getline(ss, token, ',')) {
-        if (!token.empty()) {  // ·ÀÖ¹¶îÍâµÄ¶ººÅµ¼ÖÂ´íÎó
-            try {
-                vertices.push_back(std::stoi(token));
-            } catch (const std::exception& e) {
-                std::cerr << "Error parsing VertexID: " << e.what() << std::endl;
-            }
-        }
-    }
-
-    return vertices;
 }
 
 std::vector<VertexID> GQLOrder(const Graph &query, const CandidateSpace &cs) {

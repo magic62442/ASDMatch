@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/2/27.
+// Created by Qiyan LI on 2024/2/27.
 //
 
 #ifndef IN_MEMORY_JOIN_CONFIG_H
@@ -32,11 +32,11 @@
 #define MAX_NUM_LABEL 1000
 #define MAX_FOURCYCLE_NUM 1e10
 #define SAMPLE_SIZE 10000
-#define SAMPLE_PORTION_LABELED 6
+#define SAMPLE_PORTION_LABELED 4
 #define MAX_PENALTY 0.95
 #define COLLECT_STATISTICS
-//#define COLLET_GLOBAL_TIME
-#define MAX_NUM_PLAN 200
+//#define ALL_LEVEL
+//#define LOCAL_COUNT
 //#define COLLECT_RESULT
 
 typedef uint32_t ui;

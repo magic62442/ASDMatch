@@ -1,5 +1,5 @@
 //
-// Created by anonymous authors on 2024/3/8.
+// Created by Qiyan LI on 2024/3/8.
 //
 
 #include "compute_set_intersection.h"
